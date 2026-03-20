@@ -1,7 +1,16 @@
-// Stub -- to be implemented in GREEN phase
+import { writeFile } from "atomically";
+
+/**
+ * Write content to a file atomically using temp-file + fsync + rename.
+ * Prevents data corruption on crash -- never leaves a partial write on disk.
+ */
 export async function writeFileAtomic(
-  _filePath: string,
-  _content: string,
+  filePath: string,
+  content: string,
 ): Promise<void> {
-  throw new Error("Not implemented");
+  await writeFile(filePath, content, {
+    encoding: "utf-8",
+    fsync: true,
+    fsyncWait: true,
+  });
 }
