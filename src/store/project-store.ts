@@ -1,31 +1,104 @@
-// Stub -- to be implemented in GREEN phase
+import fs from "node:fs/promises";
+import path from "node:path";
+import { load as yamlLoad, dump as yamlDump } from "js-yaml";
+import { writeFileAtomic } from "./atomic-write.ts";
+import { ProjectConfigSchema } from "../types.ts";
 import type { ProjectConfig, ChatFrontmatter } from "../types.ts";
+import { resolveProjectDir } from "../utils/paths.ts";
+import { PROJECT_CONFIG_FILENAME } from "../markdown/format.ts";
 
+/**
+ * Read project config from _config.yaml in the project directory.
+ * Returns an empty object if the file does not exist or is invalid.
+ * Validates with ProjectConfigSchema and strips unknown fields.
+ */
 export async function readProjectConfig(
-  _storageRoot: string,
-  _project: string,
+  storageRoot: string,
+  project: string,
 ): Promise<ProjectConfig> {
-  throw new Error("Not implemented");
+  const projectDir = resolveProjectDir(storageRoot, project);
+  const configPath = path.join(projectDir, PROJECT_CONFIG_FILENAME);
+
+  let content: string;
+  try {
+    content = await fs.readFile(configPath, "utf-8");
+  } catch {
+    // File does not exist -- return empty config
+    return {};
+  }
+
+  try {
+    const raw = yamlLoad(content);
+    const parsed = ProjectConfigSchema.safeParse(raw);
+    if (parsed.success) {
+      return parsed.data;
+    }
+    // Invalid schema -- return empty config (graceful degradation)
+    return {};
+  } catch {
+    // Invalid YAML -- return empty config
+    return {};
+  }
 }
 
+/**
+ * Write project config to _config.yaml in the project directory.
+ * Auto-creates the project directory if it does not exist.
+ * Uses atomic writes for crash safety.
+ */
 export async function writeProjectConfig(
-  _storageRoot: string,
-  _project: string,
-  _config: ProjectConfig,
+  storageRoot: string,
+  project: string,
+  config: ProjectConfig,
 ): Promise<void> {
-  throw new Error("Not implemented");
+  const projectDir = resolveProjectDir(storageRoot, project);
+  await fs.mkdir(projectDir, { recursive: true });
+
+  const configPath = path.join(projectDir, PROJECT_CONFIG_FILENAME);
+  const yamlContent = yamlDump(config);
+
+  await writeFileAtomic(configPath, yamlContent);
 }
 
+/**
+ * Resolve the effective system prompt for a chat.
+ * Priority: chat frontmatter system_prompt > project _config.yaml system_prompt > undefined.
+ */
 export async function resolveSystemPrompt(
-  _storageRoot: string,
-  _project: string,
-  _chatFrontmatter: ChatFrontmatter,
+  storageRoot: string,
+  project: string,
+  chatFrontmatter: ChatFrontmatter,
 ): Promise<string | undefined> {
-  throw new Error("Not implemented");
+  // Chat-level prompt takes priority
+  if (
+    chatFrontmatter.system_prompt &&
+    chatFrontmatter.system_prompt.length > 0
+  ) {
+    return chatFrontmatter.system_prompt;
+  }
+
+  // Fall back to project-level prompt
+  const config = await readProjectConfig(storageRoot, project);
+  if (config.system_prompt && config.system_prompt.length > 0) {
+    return config.system_prompt;
+  }
+
+  return undefined;
 }
 
+/**
+ * List all project directories in the storage root.
+ * Excludes hidden directories (starting with .).
+ * Returns a sorted array of project names.
+ */
 export async function listProjects(
-  _storageRoot: string,
+  storageRoot: string,
 ): Promise<string[]> {
-  throw new Error("Not implemented");
+  const entries = await fs.readdir(storageRoot, { withFileTypes: true });
+
+  const projects = entries
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
+    .map((entry) => entry.name);
+
+  return projects.sort();
 }
