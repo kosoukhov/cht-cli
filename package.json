@@ -8,6 +8,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "atomically": "^2.1.1",
     "gray-matter": "^4.0.3",
     "slug": "^11.0.1",
