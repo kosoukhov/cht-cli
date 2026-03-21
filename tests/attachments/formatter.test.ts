@@ -84,9 +84,11 @@ describe("formatAttachmentApiContent", () => {
     expect(result).not.toBeNull();
     expect(result!.type).toBe("image");
     if (result!.type !== "image") throw new Error("Expected image type");
-    expect(result!.source.type).toBe("base64");
-    expect(result!.source.media_type).toBe("image/png");
-    expect(result!.source.data).toBe(imageAttachment.base64);
+    const source = result!.source;
+    expect(source.type).toBe("base64");
+    if (source.type !== "base64") throw new Error("Expected base64 source");
+    expect(source.media_type).toBe("image/png");
+    expect(source.data).toBe(imageAttachment.base64);
   });
 
   it("formats error attachment as null", () => {
