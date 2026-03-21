@@ -1,6 +1,7 @@
 import { getClient } from "./client.ts";
 
-const TITLE_MODEL = "claude-haiku-4-5-20250929";
+const TITLE_MODEL =
+  process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || "claude-haiku-4-5-20251001";
 
 export async function generateChatTitle(
   userMessage: string,
