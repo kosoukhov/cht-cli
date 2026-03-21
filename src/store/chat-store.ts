@@ -158,6 +158,22 @@ export async function appendMessage(
 }
 
 /**
+ * Update frontmatter fields in an existing chat file.
+ * Reads the file, merges updates into existing frontmatter,
+ * re-serializes the entire file, and writes atomically.
+ * Used by REPL to update the chat title after Haiku generates one.
+ */
+export async function updateFrontmatter(
+  filePath: string,
+  updates: Partial<ChatFrontmatter>,
+): Promise<void> {
+  const existing = await readChat(filePath);
+  const updatedFrontmatter = { ...existing.frontmatter, ...updates };
+  const serialized = serializeChat(updatedFrontmatter, existing.messages);
+  await writeFileAtomic(filePath, serialized);
+}
+
+/**
  * Check if a file exists at the given path.
  */
 async function fileExists(filePath: string): Promise<boolean> {
