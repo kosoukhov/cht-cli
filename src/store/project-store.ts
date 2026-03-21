@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { load as yamlLoad, dump as yamlDump } from "js-yaml";
+import yaml from "js-yaml";
+const { load: yamlLoad, dump: yamlDump } = yaml;
 import { writeFileAtomic } from "./atomic-write.ts";
 import { ProjectConfigSchema } from "../types.ts";
 import type { ProjectConfig, ChatFrontmatter } from "../types.ts";

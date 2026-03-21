@@ -9,7 +9,8 @@ export const HEADING_PATTERN = /^## (User|Assistant)\s*$/;
 export const FENCE_OPEN_PATTERN = /^(`{3,}|~{3,})/;
 
 // Default model for new chats
-export const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+export const DEFAULT_MODEL =
+  process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || "claude-sonnet-4-20250514";
 
 // Project config filename
 export const PROJECT_CONFIG_FILENAME = "_config.yaml";

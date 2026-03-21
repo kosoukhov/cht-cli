@@ -37,6 +37,7 @@ const { sendAndStream } = await import("../../src/api/client.ts");
 const { generateChatTitle } = await import(
   "../../src/api/title-generator.ts"
 );
+const { DEFAULT_MODEL } = await import("../../src/markdown/format.ts");
 
 describe("sendAndStream", () => {
   let stdoutSpy: ReturnType<typeof vi.spyOn>;
@@ -88,7 +89,7 @@ describe("sendAndStream", () => {
 
     expect(mockMessagesStream).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "claude-sonnet-4-20250514",
+        model: DEFAULT_MODEL,
       }),
     );
   });

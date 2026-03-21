@@ -7,6 +7,11 @@ let _client: Anthropic | undefined;
 export function getClient(): Anthropic {
   if (!_client) {
     _client = new Anthropic({
+      apiKey:
+        process.env.ANTHROPIC_API_KEY ||
+        process.env.ANTHROPIC_AUTH_TOKEN ||
+        undefined,
+      baseURL: process.env.ANTHROPIC_BASE_URL || undefined,
       timeout: 120_000,
     });
   }
