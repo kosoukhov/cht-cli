@@ -7,6 +7,10 @@ import {
   readChat,
   listChats,
   appendMessage,
+  deleteChat,
+  archiveChat,
+  restoreChat,
+  listArchivedChats,
 } from "../../src/store/chat-store.ts";
 
 describe("chat-store", () => {
@@ -221,6 +225,201 @@ describe("chat-store", () => {
       const parsed = await readChat(filePath);
       expect(parsed.messages).toHaveLength(2);
       expect(parsed.messages[1].content).toBe(codeContent);
+    });
+  });
+
+  describe("deleteChat", () => {
+    it("removes the file from disk", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Delete Me");
+
+      // File should exist before deletion
+      await fs.stat(filePath);
+
+      await deleteChat(filePath);
+
+      // File should no longer exist
+      await expect(fs.access(filePath)).rejects.toThrow();
+    });
+
+    it("throws when file does not exist (ENOENT propagates)", async () => {
+      const nonExistent = path.join(tmpDir, "myproject", "does-not-exist.md");
+
+      await expect(deleteChat(nonExistent)).rejects.toThrow();
+    });
+  });
+
+  describe("archiveChat", () => {
+    it("moves file to _archive/ subdirectory", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Archive Me");
+
+      const archivePath = await archiveChat(filePath, tmpDir, "myproject");
+
+      // Original file should be gone
+      await expect(fs.access(filePath)).rejects.toThrow();
+
+      // Archived file should exist
+      const stat = await fs.stat(archivePath);
+      expect(stat.isFile()).toBe(true);
+
+      // Should be in _archive/ directory
+      expect(archivePath).toContain(path.join("myproject", "_archive"));
+    });
+
+    it("creates _archive/ directory if it does not exist", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "First Archive");
+      const archiveDir = path.join(tmpDir, "myproject", "_archive");
+
+      // _archive/ should not exist yet
+      await expect(fs.access(archiveDir)).rejects.toThrow();
+
+      await archiveChat(filePath, tmpDir, "myproject");
+
+      // _archive/ should now exist
+      const stat = await fs.stat(archiveDir);
+      expect(stat.isDirectory()).toBe(true);
+    });
+
+    it("returns the new archive path as a string", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Return Path");
+
+      const archivePath = await archiveChat(filePath, tmpDir, "myproject");
+
+      expect(typeof archivePath).toBe("string");
+      expect(archivePath.endsWith(".md")).toBe(true);
+      expect(archivePath).toContain("_archive");
+    });
+
+    it("handles filename collision with numeric suffix", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Collision Test");
+      const basename = path.basename(filePath);
+
+      // Manually create a file at the expected archive path
+      const archiveDir = path.join(tmpDir, "myproject", "_archive");
+      await fs.mkdir(archiveDir, { recursive: true });
+      await fs.writeFile(path.join(archiveDir, basename), "existing", "utf-8");
+
+      const archivePath = await archiveChat(filePath, tmpDir, "myproject");
+
+      // Should have -2 suffix
+      const archiveBasename = path.basename(archivePath);
+      expect(archiveBasename).toMatch(/-2\.md$/);
+    });
+
+    it("handles multiple collisions with incrementing suffixes", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Multi Collision");
+      const basename = path.basename(filePath);
+      const baseName = basename.replace(/\.md$/, "");
+
+      // Manually create files at expected archive paths
+      const archiveDir = path.join(tmpDir, "myproject", "_archive");
+      await fs.mkdir(archiveDir, { recursive: true });
+      await fs.writeFile(path.join(archiveDir, basename), "existing1", "utf-8");
+      await fs.writeFile(
+        path.join(archiveDir, `${baseName}-2.md`),
+        "existing2",
+        "utf-8",
+      );
+
+      const archivePath = await archiveChat(filePath, tmpDir, "myproject");
+
+      // Should have -3 suffix
+      const archiveBasename = path.basename(archivePath);
+      expect(archiveBasename).toMatch(/-3\.md$/);
+    });
+  });
+
+  describe("restoreChat", () => {
+    it("moves file back from _archive/ to project root", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Restore Me");
+      const archivePath = await archiveChat(filePath, tmpDir, "myproject");
+
+      // Archived file should exist
+      await fs.stat(archivePath);
+
+      const restoredPath = await restoreChat(archivePath, tmpDir, "myproject");
+
+      // Archived file should be gone
+      await expect(fs.access(archivePath)).rejects.toThrow();
+
+      // Restored file should exist
+      const stat = await fs.stat(restoredPath);
+      expect(stat.isFile()).toBe(true);
+
+      // Should be in project root, not _archive
+      expect(restoredPath).not.toContain("_archive");
+      expect(restoredPath).toContain(path.join(tmpDir, "myproject"));
+    });
+
+    it("returns the new restored path", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Restore Path");
+      const archivePath = await archiveChat(filePath, tmpDir, "myproject");
+
+      const restoredPath = await restoreChat(archivePath, tmpDir, "myproject");
+
+      expect(typeof restoredPath).toBe("string");
+      expect(restoredPath.endsWith(".md")).toBe(true);
+      expect(restoredPath).not.toContain("_archive");
+    });
+  });
+
+  describe("listArchivedChats", () => {
+    it("returns ChatListEntry[] for files in _archive/ directory", async () => {
+      const filePath1 = await createChat(tmpDir, "myproject", "Archived One");
+      const filePath2 = await createChat(tmpDir, "myproject", "Archived Two");
+
+      await archiveChat(filePath1, tmpDir, "myproject");
+      await archiveChat(filePath2, tmpDir, "myproject");
+
+      const entries = await listArchivedChats(tmpDir, "myproject");
+
+      expect(entries).toHaveLength(2);
+      expect(entries[0]).toHaveProperty("path");
+      expect(entries[0]).toHaveProperty("title");
+      expect(entries[0]).toHaveProperty("project");
+      expect(entries[0]).toHaveProperty("created");
+      expect(entries[0]).toHaveProperty("lastModified");
+      expect(entries[0]).toHaveProperty("preview");
+    });
+
+    it("returns empty array when _archive/ directory does not exist", async () => {
+      const entries = await listArchivedChats(tmpDir, "myproject");
+
+      expect(entries).toEqual([]);
+    });
+
+    it("returns entries sorted by lastModified descending", async () => {
+      const filePath1 = await createChat(tmpDir, "myproject", "Old Chat");
+      await archiveChat(filePath1, tmpDir, "myproject");
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      const filePath2 = await createChat(tmpDir, "myproject", "New Chat");
+      await archiveChat(filePath2, tmpDir, "myproject");
+
+      const entries = await listArchivedChats(tmpDir, "myproject");
+
+      expect(entries).toHaveLength(2);
+      // Most recent first
+      expect(entries[0].title).toBe("New Chat");
+      expect(entries[1].title).toBe("Old Chat");
+    });
+
+    it("excludes non-.md files in _archive/", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Archived Chat");
+      await archiveChat(filePath, tmpDir, "myproject");
+
+      // Put a .txt file in _archive
+      const archiveDir = path.join(tmpDir, "myproject", "_archive");
+      await fs.writeFile(
+        path.join(archiveDir, "notes.txt"),
+        "some notes",
+        "utf-8",
+      );
+
+      const entries = await listArchivedChats(tmpDir, "myproject");
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0].title).toBe("Archived Chat");
     });
   });
 });
