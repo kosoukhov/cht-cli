@@ -4,6 +4,11 @@ import { DEFAULT_MODEL } from "../markdown/format.ts";
 
 let _client: Anthropic | undefined;
 
+export type StreamResult = {
+  text: string;
+  usage: { input_tokens: number; output_tokens: number };
+};
+
 export function getClient(): Anthropic {
   if (!_client) {
     _client = new Anthropic({
@@ -22,7 +27,7 @@ export async function sendAndStream(
   messages: MessageParam[],
   systemPrompt?: string,
   model?: string,
-): Promise<string> {
+): Promise<StreamResult> {
   const client = getClient();
 
   const stream = client.messages.stream({
@@ -43,7 +48,13 @@ export async function sendAndStream(
     const textBlocks = finalMessage.content.filter(
       (block) => block.type === "text",
     );
-    return textBlocks.map((block) => block.text).join("");
+    return {
+      text: textBlocks.map((block) => block.text).join(""),
+      usage: {
+        input_tokens: finalMessage.usage?.input_tokens ?? 0,
+        output_tokens: finalMessage.usage?.output_tokens ?? 0,
+      },
+    };
   } catch (error) {
     process.stdout.write("\n");
     throw error;

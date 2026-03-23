@@ -13,7 +13,10 @@ const mockStream = {
       mockStream._handlers["text"]("Hello");
       mockStream._handlers["text"](" world");
     }
-    return { content: [{ type: "text" as const, text: "Hello world" }] };
+    return {
+      content: [{ type: "text" as const, text: "Hello world" }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+    };
   },
 };
 
@@ -56,11 +59,12 @@ describe("sendAndStream", () => {
     vi.clearAllMocks();
   });
 
-  it("returns full response text", async () => {
+  it("returns StreamResult with text and usage", async () => {
     const result = await sendAndStream([
       { role: "user", content: "Hi" },
     ]);
-    expect(result).toBe("Hello world");
+    expect(result.text).toBe("Hello world");
+    expect(result.usage).toEqual({ input_tokens: 10, output_tokens: 5 });
   });
 
   it("streams tokens to stdout", async () => {
