@@ -2,13 +2,37 @@ import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import Anthropic from "@anthropic-ai/sdk";
 import { readChat, appendMessage, updateFrontmatter } from "../store/chat-store.ts";
-import { resolveSystemPrompt } from "../store/project-store.ts";
+import { resolveSystemPrompt, readProjectConfig } from "../store/project-store.ts";
 import { sendAndStream } from "../api/client.ts";
 import { chatMessagesToApiMessages } from "../api/messages.ts";
 import { generateChatTitle } from "../api/title-generator.ts";
 import { parseUserInput } from "./input-parser.ts";
-import type { ChatMessage } from "../types.ts";
+import { TokenTracker, formatTokenCount } from "../context/token-tracker.ts";
+import { getContextWindowLimit } from "../context/context-window.ts";
+import { assembleContext } from "../context/context-assembler.ts";
+import { summarizeMessages } from "../context/summarizer.ts";
+import { searchChats, formatSearchResults } from "../search/search.ts";
+import { listChats, readChat as readChatFile } from "../store/chat-store.ts";
+import type { ChatMessage, ParsedChat } from "../types.ts";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
+
+/**
+ * Format a date as a relative string per UI-SPEC:
+ * - 0 days: "today"
+ * - 1 day: "yesterday"
+ * - 2-7 days: "{n} days ago"
+ * - >7 days: YYYY-MM-DD
+ */
+function formatRelativeDate(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "yesterday";
+  if (diffDays <= 7) return `${diffDays} days ago`;
+  return date.toISOString().slice(0, 10);
+}
 
 /**
  * Format an API error for display to the user.
@@ -53,10 +77,14 @@ export function formatApiError(err: unknown): string {
  * - Ctrl+C during streaming (abort) vs during input (exit)
  * - Auto-title generation after first exchange
  * - Error formatting per UI-SPEC
+ * - /include, /search, /tokens commands (Phase 3)
+ * - Token usage display after every response (Phase 3)
+ * - Context warnings and auto-summarization (Phase 3)
  */
 export async function runRepl(
   chatPath: string,
   storageRoot: string,
+  options?: { initialInclude?: { chatPath: string; title: string } },
 ): Promise<void> {
   const rl = readline.createInterface({ input: stdin, output: stdout });
 
@@ -69,6 +97,51 @@ export async function runRepl(
     chat.frontmatter,
   );
 
+  // Read project config for context_window override (D-07)
+  const projectConfig = await readProjectConfig(storageRoot, chat.frontmatter.project);
+  const contextLimit = getContextWindowLimit(
+    chat.frontmatter.model || "claude-sonnet-4-20250514",
+    projectConfig.context_window,
+  );
+  const tracker = new TokenTracker(contextLimit);
+
+  // Included chat state (D-01)
+  let includedChat: ParsedChat | null = null;
+  let includedSummary: string | null = null;
+  let includedTitle: string | null = null;
+
+  // Handle initial include from --include flag
+  if (options?.initialInclude) {
+    try {
+      const loadedChat = await readChatFile(options.initialInclude.chatPath);
+      const chatContent = loadedChat.messages.map((m) => m.content).join(" ");
+      const estimatedTokens = Math.round(chatContent.length / 4);
+      const includeBudget = contextLimit * 0.3;
+
+      if (estimatedTokens > includeBudget) {
+        // D-13: summarize included chat
+        includedSummary = await summarizeMessages(loadedChat.messages);
+        includedChat = loadedChat;
+        includedTitle = options.initialInclude.title;
+        const summaryTokens = Math.round(includedSummary.length / 4);
+        console.log(
+          `Included: ${options.initialInclude.title} (${loadedChat.messages.length} messages, summarized to ~${formatTokenCount(summaryTokens)} tokens)`,
+        );
+      } else {
+        includedChat = loadedChat;
+        includedSummary = null;
+        includedTitle = options.initialInclude.title;
+        console.log(
+          `Included: ${options.initialInclude.title} (${loadedChat.messages.length} messages, ~${formatTokenCount(estimatedTokens)} tokens)`,
+        );
+      }
+    } catch {
+      console.error(
+        `Error: Could not read chat "${options.initialInclude.title}". File may have been moved or deleted.`,
+      );
+    }
+  }
+
   let isFirstExchange = messages.length === 0;
   let isStreaming = false;
   let currentAbortController: AbortController | null = null;
@@ -76,12 +149,18 @@ export async function runRepl(
   // Welcome banner (exact UI-SPEC strings)
   if (messages.length === 0) {
     console.log("Chat: (untitled)");
-    console.log("Type your message. /exit or Ctrl+C to quit.");
   } else {
     console.log(`Chat: ${chat.frontmatter.title}`);
     console.log(
       `${messages.length} messages loaded. Type your message. /exit or Ctrl+C to quit.`,
     );
+  }
+
+  // Show included chat info in welcome banner
+  if (includedTitle && messages.length === 0) {
+    console.log("Type your message. /exit or Ctrl+C to quit.");
+  } else if (messages.length === 0) {
+    console.log("Type your message. /exit or Ctrl+C to quit.");
   }
   console.log();
 
@@ -110,6 +189,184 @@ export async function runRepl(
       if (userInput.trim() === "/exit") break;
       if (userInput.trim() === "") continue;
 
+      // /include command (D-01, D-03)
+      if (userInput.trim() === "/include") {
+        if (includedChat) {
+          console.log(
+            `Already including: ${includedTitle}. Only one chat can be included at a time.`,
+          );
+          continue;
+        }
+        // List chats in current project (exclude current chat)
+        const projectChats = await listChats(storageRoot, chat.frontmatter.project);
+        const otherChats = projectChats
+          .filter((c) => c.path !== chatPath)
+          .slice(0, 20);
+        if (otherChats.length === 0) {
+          console.log("No other chats found to include.");
+          continue;
+        }
+        console.log("Select a chat to include as context:\n");
+        for (let i = 0; i < otherChats.length; i++) {
+          const c = otherChats[i]!;
+          const relDate = formatRelativeDate(c.lastModified);
+          console.log(`  ${i + 1}. ${c.title}  (${relDate})`);
+        }
+        console.log();
+        const answer = await rl.question(
+          "Enter number to include, or q to cancel: ",
+        );
+        if (answer.trim().toLowerCase() === "q" || answer.trim() === "")
+          continue;
+        const num = parseInt(answer.trim(), 10);
+        if (isNaN(num) || num < 1 || num > otherChats.length) continue;
+        const selected = otherChats[num - 1]!;
+        // Load and include
+        try {
+          const loadedChat = await readChatFile(selected.path);
+          const chatContent = loadedChat.messages
+            .map((m) => m.content)
+            .join(" ");
+          const estimatedTokens = Math.round(chatContent.length / 4);
+          const includeBudget = contextLimit * 0.3;
+          if (estimatedTokens > includeBudget) {
+            // D-13: summarize included chat
+            includedSummary = await summarizeMessages(loadedChat.messages);
+            includedChat = loadedChat;
+            includedTitle = selected.title;
+            const summaryTokens = Math.round(includedSummary.length / 4);
+            console.log(
+              `Included: ${selected.title} (${loadedChat.messages.length} messages, summarized to ~${formatTokenCount(summaryTokens)} tokens)`,
+            );
+          } else {
+            includedChat = loadedChat;
+            includedSummary = null;
+            includedTitle = selected.title;
+            console.log(
+              `Included: ${selected.title} (${loadedChat.messages.length} messages, ~${formatTokenCount(estimatedTokens)} tokens)`,
+            );
+          }
+        } catch {
+          console.error(
+            `Error: Could not read chat "${selected.title}". File may have been moved or deleted.`,
+          );
+        }
+        continue;
+      }
+
+      // /search command (D-14, D-15, D-16, D-17)
+      if (
+        userInput.trim().startsWith("/search ") ||
+        userInput.trim() === "/search"
+      ) {
+        if (userInput.trim() === "/search") {
+          console.log("Usage: /search <query> [--all]");
+          continue;
+        }
+        const searchInput = userInput.trim().slice("/search ".length);
+        const allFlag = searchInput.includes("--all");
+        const query = searchInput.replace("--all", "").trim();
+        if (!query) {
+          console.log("Usage: /search <query> [--all]");
+          continue;
+        }
+        try {
+          const results = await searchChats(
+            storageRoot,
+            query,
+            allFlag ? undefined : chat.frontmatter.project,
+            allFlag,
+          );
+          const { formatted, chats } = formatSearchResults(results, query);
+          console.log(formatted);
+          // D-17: offer to include from results
+          if (chats.length > 0 && !includedChat) {
+            const answer = await rl.question(
+              "Include a result? Enter number, or press Enter to cancel: ",
+            );
+            if (answer.trim() !== "") {
+              const num = parseInt(answer.trim(), 10);
+              if (!isNaN(num) && num >= 1 && num <= chats.length) {
+                const selected = chats[num - 1]!;
+                try {
+                  const loadedChat = await readChatFile(selected.chatPath);
+                  const chatContent = loadedChat.messages
+                    .map((m) => m.content)
+                    .join(" ");
+                  const estimatedTokens = Math.round(chatContent.length / 4);
+                  const includeBudget = contextLimit * 0.3;
+                  if (estimatedTokens > includeBudget) {
+                    includedSummary = await summarizeMessages(
+                      loadedChat.messages,
+                    );
+                    includedChat = loadedChat;
+                    includedTitle = selected.chatTitle;
+                    const summaryTokens = Math.round(
+                      includedSummary.length / 4,
+                    );
+                    console.log(
+                      `Included: ${selected.chatTitle} (${loadedChat.messages.length} messages, summarized to ~${formatTokenCount(summaryTokens)} tokens)`,
+                    );
+                  } else {
+                    includedChat = loadedChat;
+                    includedSummary = null;
+                    includedTitle = selected.chatTitle;
+                    console.log(
+                      `Included: ${selected.chatTitle} (${loadedChat.messages.length} messages, ~${formatTokenCount(estimatedTokens)} tokens)`,
+                    );
+                  }
+                } catch {
+                  console.error(
+                    `Error: Could not read chat "${selected.chatTitle}". File may have been moved or deleted.`,
+                  );
+                }
+              }
+            }
+          }
+        } catch {
+          console.error(
+            "Error: Search failed. Check that the storage directory is accessible.",
+          );
+        }
+        continue;
+      }
+
+      // /tokens command (per UI-SPEC /tokens flow)
+      if (userInput.trim() === "/tokens") {
+        const model = chat.frontmatter.model || "claude-sonnet-4-20250514";
+        console.log("Context usage:");
+        console.log(`  Model: ${model}`);
+        console.log(
+          `  Context window: ${formatTokenCount(contextLimit)} tokens`,
+        );
+        console.log(
+          `  Last input: ${formatTokenCount(tracker.lastInputTokens)} tokens`,
+        );
+        console.log(
+          `  Last output: ${formatTokenCount(tracker.lastOutputTokens)} tokens`,
+        );
+        console.log(`  Estimated usage: ${tracker.usagePercent}%`);
+        const includedTokenEstimate = includedChat
+          ? Math.round(
+              (
+                includedChat.messages.map((m) => m.content).join(" ").length || 0
+              ) / 4,
+            )
+          : 0;
+        console.log(
+          `  Included chat: ${includedTitle ? `${includedTitle} (~${formatTokenCount(includedTokenEstimate)} tokens)` : "none"}`,
+        );
+        continue;
+      }
+
+      // Unknown command handler (per UI-SPEC)
+      if (userInput.trim().startsWith("/")) {
+        console.log(
+          `Unknown command: ${userInput.trim().split(" ")[0]}. Available: /include, /search, /tokens, /exit`,
+        );
+        continue;
+      }
+
       // Parse input for file references
       const parsed = await parseUserInput(userInput);
 
@@ -125,8 +382,21 @@ export async function runRepl(
       messages.push({ role: "user", content: userMarkdownContent });
       await appendMessage(chatPath, "user", userMarkdownContent);
 
-      // Build API messages array
-      const apiMessages: MessageParam[] = chatMessagesToApiMessages(messages);
+      // Run context assembly (D-02, D-08, D-09, D-11, D-13)
+      const assembled = await assembleContext({
+        allMessages: messages,
+        includedChat,
+        includedSummary,
+        systemPrompt,
+        contextLimit,
+        model: chat.frontmatter.model || "claude-sonnet-4-20250514",
+        lastInputTokens: tracker.lastInputTokens,
+      });
+      const summarizationOccurred = assembled.summarized;
+      const summarizationInfo = assembled.summarizationInfo;
+
+      let apiMessages = assembled.apiMessages;
+      const effectiveSystemPrompt = assembled.systemWithInclude ?? systemPrompt;
 
       // If attachments had API content blocks (images, etc.), replace last message content
       if (parsed.apiContent.length > 0) {
@@ -136,26 +406,44 @@ export async function runRepl(
         };
       }
 
+      // Print summarization notice BEFORE the API call (per UI-SPEC output sequence)
+      if (summarizationOccurred && summarizationInfo) {
+        console.log(
+          `[summarized: ${summarizationInfo.originalCount} older messages -> summary + ${summarizationInfo.keptCount} recent]`,
+        );
+      }
+
       // Stream Claude response
       isStreaming = true;
       currentAbortController = new AbortController();
       try {
-        const responseText = await sendAndStream(
+        const result = await sendAndStream(
           apiMessages,
-          systemPrompt,
+          effectiveSystemPrompt,
           chat.frontmatter.model,
         );
         isStreaming = false;
         currentAbortController = null;
 
+        // Update token tracker
+        tracker.update(result.usage.input_tokens, result.usage.output_tokens);
+
+        // Print token usage line (D-06, per UI-SPEC -- immediately after response)
+        console.log(tracker.formatUsageLine());
+
+        // Print warning if applicable (D-08)
+        const warningLine = tracker.formatWarningLine();
+        if (warningLine) console.log(warningLine);
+
         // Persist assistant response after completion (D-06)
-        messages.push({ role: "assistant", content: responseText });
-        await appendMessage(chatPath, "assistant", responseText);
+        // D-11: File is the complete archive -- no summarized content written
+        messages.push({ role: "assistant", content: result.text });
+        await appendMessage(chatPath, "assistant", result.text);
 
         // Auto-title after first exchange (D-02)
         if (isFirstExchange) {
           isFirstExchange = false;
-          generateChatTitle(userInput, responseText)
+          generateChatTitle(userInput, result.text)
             .then((title) => updateFrontmatter(chatPath, { title }))
             .catch(() => {
               // Silent per UI-SPEC

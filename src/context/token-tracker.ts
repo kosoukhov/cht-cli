@@ -30,41 +30,56 @@ export function formatUsageLine(
  * Stores the last input/output token counts and computes context window usage.
  */
 export class TokenTracker {
-  private contextLimit: number;
-  private lastInputTokens = 0;
-  private lastOutputTokens = 0;
+  private _contextLimit: number;
+  private _lastInputTokens = 0;
+  private _lastOutputTokens = 0;
 
   constructor(contextLimit: number) {
-    this.contextLimit = contextLimit;
+    this._contextLimit = contextLimit;
   }
 
   /** Update with the latest API response usage stats. */
   update(inputTokens: number, outputTokens: number): void {
-    this.lastInputTokens = inputTokens;
-    this.lastOutputTokens = outputTokens;
+    this._lastInputTokens = inputTokens;
+    this._lastOutputTokens = outputTokens;
+  }
+
+  /** Last known input token count from API response. */
+  get lastInputTokens(): number {
+    return this._lastInputTokens;
+  }
+
+  /** Last known output token count from API response. */
+  get lastOutputTokens(): number {
+    return this._lastOutputTokens;
+  }
+
+  /** Context window limit for this tracker. */
+  get contextLimit(): number {
+    return this._contextLimit;
   }
 
   /** Context usage percentage (rounded integer). */
   get usagePercent(): number {
-    return Math.round((this.lastInputTokens / this.contextLimit) * 100);
+    return Math.round((this._lastInputTokens / this._contextLimit) * 100);
   }
 
   /** True when usage exceeds the warning threshold (75%). */
   shouldWarn(): boolean {
-    return this.lastInputTokens / this.contextLimit >= WARN_THRESHOLD;
+    return this._lastInputTokens / this._contextLimit >= WARN_THRESHOLD;
   }
 
   /** True when usage exceeds the summarization threshold (85%). */
   shouldSummarize(): boolean {
-    return this.lastInputTokens / this.contextLimit >= SUMMARIZE_THRESHOLD;
+    return this._lastInputTokens / this._contextLimit >= SUMMARIZE_THRESHOLD;
   }
 
   /** Format the per-response usage line for display. */
   formatUsageLine(): string {
     return formatUsageLine(
-      this.lastInputTokens,
-      this.lastOutputTokens,
-      this.contextLimit,
+      this._lastInputTokens,
+      this._lastOutputTokens,
+      this._contextLimit,
     );
   }
 

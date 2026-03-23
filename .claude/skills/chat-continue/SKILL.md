@@ -14,3 +14,9 @@ node --experimental-strip-types src/commands/continue-chat.ts $ARGUMENTS
 ```
 
 The script lists recent chats in the project, prompts the user to select one by number, then enters the REPL with the full conversation history loaded. Wait for it to complete.
+
+REPL commands available during chat:
+- `/include` -- include an old chat as background context
+- `/search <query> [--all]` -- search across chats and optionally include results
+- `/tokens` -- show context window usage details
+- `/exit` -- end the chat session
