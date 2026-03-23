@@ -174,6 +174,109 @@ export async function updateFrontmatter(
 }
 
 /**
+ * Delete a chat file permanently from disk.
+ * Throws if the file does not exist (ENOENT propagates).
+ */
+export async function deleteChat(filePath: string): Promise<void> {
+  await fs.unlink(filePath);
+}
+
+/**
+ * Archive a chat by moving it to the _archive/ subdirectory.
+ * Creates _archive/ if it does not exist.
+ * Handles filename collision by appending -2, -3, etc.
+ * Returns the new archive path.
+ */
+export async function archiveChat(
+  filePath: string,
+  storageRoot: string,
+  project: string,
+): Promise<string> {
+  const projectDir = resolveProjectDir(storageRoot, project);
+  const archiveDir = path.join(projectDir, "_archive");
+  await fs.mkdir(archiveDir, { recursive: true });
+
+  const basename = path.basename(filePath);
+  let archivePath = path.join(archiveDir, basename);
+
+  // Handle collision (same pattern as createChat)
+  const baseName = basename.replace(/\.md$/, "");
+  let counter = 2;
+  while (await fileExists(archivePath)) {
+    archivePath = path.join(archiveDir, `${baseName}-${counter}.md`);
+    counter++;
+  }
+
+  await fs.rename(filePath, archivePath);
+  return archivePath;
+}
+
+/**
+ * Restore an archived chat by moving it back from _archive/ to project root.
+ * Returns the new restored path.
+ */
+export async function restoreChat(
+  archivedPath: string,
+  storageRoot: string,
+  project: string,
+): Promise<string> {
+  const projectDir = resolveProjectDir(storageRoot, project);
+  const basename = path.basename(archivedPath);
+  const restoredPath = path.join(projectDir, basename);
+  await fs.rename(archivedPath, restoredPath);
+  return restoredPath;
+}
+
+/**
+ * List all archived chats in a project's _archive/ directory.
+ * Returns entries sorted by lastModified descending (most recent first).
+ * Returns empty array if _archive/ does not exist.
+ */
+export async function listArchivedChats(
+  storageRoot: string,
+  project: string,
+): Promise<ChatListEntry[]> {
+  const projectDir = resolveProjectDir(storageRoot, project);
+  const archiveDir = path.join(projectDir, "_archive");
+
+  let files: string[];
+  try {
+    files = await fs.readdir(archiveDir);
+  } catch {
+    return []; // No archive directory = no archived chats
+  }
+
+  const mdFiles = files.filter((f) => f.endsWith(".md"));
+  const entries: ChatListEntry[] = [];
+
+  for (const file of mdFiles) {
+    const filePath = path.join(archiveDir, file);
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+      const stat = await fs.stat(filePath);
+      const { data, content: body } = matter(content);
+      const preview = extractLastMessagePreview(body);
+
+      entries.push({
+        path: filePath,
+        title: (data.title as string) || file,
+        project: (data.project as string) || project,
+        created: (data.created as string) || stat.birthtime.toISOString(),
+        lastModified: stat.mtime,
+        preview,
+      });
+    } catch {
+      continue;
+    }
+  }
+
+  entries.sort(
+    (a, b) => b.lastModified.getTime() - a.lastModified.getTime(),
+  );
+  return entries;
+}
+
+/**
  * Check if a file exists at the given path.
  */
 async function fileExists(filePath: string): Promise<boolean> {
