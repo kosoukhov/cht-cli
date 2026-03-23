@@ -1,7 +1,7 @@
 import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import Anthropic from "@anthropic-ai/sdk";
-import { readChat, appendMessage, updateFrontmatter } from "../store/chat-store.ts";
+import { readChat, appendMessage, updateFrontmatter, deleteChat, archiveChat } from "../store/chat-store.ts";
 import { resolveSystemPrompt, readProjectConfig } from "../store/project-store.ts";
 import { sendAndStream } from "../api/client.ts";
 import { chatMessagesToApiMessages } from "../api/messages.ts";
@@ -189,6 +189,67 @@ export async function runRepl(
       if (userInput.trim() === "/exit") break;
       if (userInput.trim() === "") continue;
 
+      // /delete command (D-01, D-02, D-03 per CONTEXT.md)
+      if (userInput.trim() === "/delete") {
+        const title = chat.frontmatter.title || "(untitled)";
+        const count = messages.length;
+        console.log(`Delete "${title}" (${count} messages)?`);
+        const confirm = await rl.question("This cannot be undone. [y/N] ");
+        if (confirm.trim().toLowerCase() === "y") {
+          try {
+            await deleteChat(chatPath);
+            console.log(`Deleted: ${title}`);
+            console.log("Session ended.");
+          } catch {
+            console.error("Error: Chat file not found. It may have already been deleted.");
+          }
+          break;
+        }
+        console.log("Delete cancelled.");
+        continue;
+      }
+
+      // /archive command (D-07, D-08 per CONTEXT.md)
+      if (userInput.trim() === "/archive") {
+        const title = chat.frontmatter.title || "(untitled)";
+        const count = messages.length;
+        console.log(`Archive "${title}" (${count} messages)?`);
+        const confirm = await rl.question("Chat will be hidden from listings but preserved on disk. [y/N] ");
+        if (confirm.trim().toLowerCase() === "y") {
+          try {
+            await archiveChat(chatPath, storageRoot, chat.frontmatter.project);
+            console.log(`Archived: ${title}`);
+            console.log("Session ended.");
+          } catch {
+            console.error("Error: Could not archive chat. Check file permissions.");
+          }
+          break;
+        }
+        console.log("Archive cancelled.");
+        continue;
+      }
+
+      // /rename command (D-09, D-10 per CONTEXT.md)
+      if (userInput.trim().startsWith("/rename ") || userInput.trim() === "/rename") {
+        if (userInput.trim() === "/rename") {
+          console.log("Usage: /rename <new title>");
+          continue;
+        }
+        const newTitle = userInput.trim().slice("/rename ".length).trim();
+        if (!newTitle) {
+          console.log("Usage: /rename <new title>");
+          continue;
+        }
+        try {
+          await updateFrontmatter(chatPath, { title: newTitle });
+          chat.frontmatter.title = newTitle;
+          console.log(`Renamed to: ${newTitle}`);
+        } catch {
+          console.error("Error: Chat file not found. It may have been moved or deleted.");
+        }
+        continue;
+      }
+
       // /include command (D-01, D-03)
       if (userInput.trim() === "/include") {
         if (includedChat) {
@@ -362,7 +423,7 @@ export async function runRepl(
       // Unknown command handler (per UI-SPEC)
       if (userInput.trim().startsWith("/")) {
         console.log(
-          `Unknown command: ${userInput.trim().split(" ")[0]}. Available: /include, /search, /tokens, /exit`,
+          `Unknown command: ${userInput.trim().split(" ")[0]}. Available: /include, /search, /tokens, /delete, /archive, /rename, /exit`,
         );
         continue;
       }
