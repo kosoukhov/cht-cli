@@ -31,8 +31,9 @@ describe("formatTokenCount", () => {
 
 describe("formatUsageLine", () => {
   it("produces exact UI-SPEC format", () => {
+    // 800 < 1000, so raw number per UI-SPEC formatting rules
     expect(formatUsageLine(1200, 800, 200000)).toBe(
-      "[tokens: 1.2k in / 0.8k out | context used 1%]",
+      "[tokens: 1.2k in / 800 out | context used 1%]",
     );
   });
 
@@ -102,8 +103,9 @@ describe("TokenTracker", () => {
   it("formatUsageLine() returns exact UI-SPEC formatted string", () => {
     const tracker = new TokenTracker(200000);
     tracker.update(1200, 800);
+    // 800 < 1000, so raw number per UI-SPEC formatting rules
     expect(tracker.formatUsageLine()).toBe(
-      "[tokens: 1.2k in / 0.8k out | context used 1%]",
+      "[tokens: 1.2k in / 800 out | context used 1%]",
     );
   });
 

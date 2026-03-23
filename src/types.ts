@@ -26,6 +26,7 @@ export type ParsedChat = {
 export const ProjectConfigSchema = z.object({
   system_prompt: z.string().optional(),
   model: z.string().optional(),
+  context_window: z.number().optional(),
 });
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
