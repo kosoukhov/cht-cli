@@ -40,6 +40,14 @@ export function parseRecentFlag(argv: string[]): number | undefined {
   return isNaN(n) || n < 1 ? 10 : n;
 }
 
+export function parseTagFlag(argv: string[]): string | undefined {
+  const idx = argv.indexOf("--tag");
+  if (idx === -1) return undefined;
+  const val = argv[idx + 1];
+  if (!val || val.startsWith("--")) return undefined;
+  return val;
+}
+
 export type ListChatsFlags = {
   project: string | undefined;
   recent: number | undefined;
@@ -47,6 +55,7 @@ export type ListChatsFlags = {
   delete_: boolean;
   archive: boolean;
   restore: boolean;
+  tag: string | undefined;
 };
 
 export function parseFlags(argv: string[]): ListChatsFlags {
@@ -60,6 +69,7 @@ export function parseFlags(argv: string[]): ListChatsFlags {
     delete_: argv.includes("--delete"),
     archive: argv.includes("--archive"),
     restore: argv.includes("--restore"),
+    tag: parseTagFlag(argv),
   };
 }
 
