@@ -116,6 +116,12 @@ export async function listChats(
       // Extract preview: last message's first non-empty line, max 100 chars
       const preview = extractLastMessagePreview(body);
 
+      // Extract tags defensively -- handle missing or non-array values
+      const rawTags = data.tags;
+      const tags: string[] = Array.isArray(rawTags)
+        ? rawTags.filter((t: unknown): t is string => typeof t === "string")
+        : [];
+
       entries.push({
         path: filePath,
         title: (data.title as string) || file,
@@ -123,7 +129,7 @@ export async function listChats(
         created: (data.created as string) || stat.birthtime.toISOString(),
         lastModified: stat.mtime,
         preview,
-        tags: [],
+        tags,
       });
     } catch {
       // Skip files that can't be read/parsed
@@ -258,6 +264,12 @@ export async function listArchivedChats(
       const { data, content: body } = matter(content);
       const preview = extractLastMessagePreview(body);
 
+      // Extract tags defensively -- handle missing or non-array values
+      const rawTags = data.tags;
+      const tags: string[] = Array.isArray(rawTags)
+        ? rawTags.filter((t: unknown): t is string => typeof t === "string")
+        : [];
+
       entries.push({
         path: filePath,
         title: (data.title as string) || file,
@@ -265,7 +277,7 @@ export async function listArchivedChats(
         created: (data.created as string) || stat.birthtime.toISOString(),
         lastModified: stat.mtime,
         preview,
-        tags: [],
+        tags,
       });
     } catch {
       continue;

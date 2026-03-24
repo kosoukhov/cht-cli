@@ -7,6 +7,7 @@ import {
   readChat,
   listChats,
   appendMessage,
+  updateFrontmatter,
   deleteChat,
   archiveChat,
   restoreChat,
@@ -420,6 +421,74 @@ describe("chat-store", () => {
 
       expect(entries).toHaveLength(1);
       expect(entries[0].title).toBe("Archived Chat");
+    });
+  });
+
+  describe("tags in listChats", () => {
+    it("returns tags from frontmatter when present", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Tagged Chat");
+
+      // Manually inject tags into the frontmatter
+      const content = await fs.readFile(filePath, "utf-8");
+      const updated = content.replace(
+        "---\n",
+        "---\ntags:\n  - work\n  - debug\n",
+      );
+      // Replace only the second occurrence (closing ---) is tricky,
+      // so instead insert tags line before the closing ---
+      // Actually the replace above adds after the opening ---, which is correct
+      // because gray-matter reads between the two --- delimiters.
+      // But we need to be more precise -- insert before the closing ---
+      const parts = content.split("---");
+      // parts[0] is empty, parts[1] is frontmatter, parts[2] is body
+      const newFrontmatter = parts[1].trimEnd() + "\ntags:\n  - work\n  - debug\n";
+      const updatedContent = "---" + newFrontmatter + "---" + parts.slice(2).join("---");
+      await fs.writeFile(filePath, updatedContent, "utf-8");
+
+      const entries = await listChats(tmpDir, "myproject");
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0].tags).toEqual(["work", "debug"]);
+    });
+
+    it("returns empty array when no tags field in frontmatter", async () => {
+      await createChat(tmpDir, "myproject", "No Tags Chat");
+
+      const entries = await listChats(tmpDir, "myproject");
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0].tags).toEqual([]);
+    });
+
+    it("tags field is always a string array", async () => {
+      await createChat(tmpDir, "myproject", "Type Check Chat");
+
+      const entries = await listChats(tmpDir, "myproject");
+
+      expect(entries).toHaveLength(1);
+      expect(Array.isArray(entries[0].tags)).toBe(true);
+    });
+  });
+
+  describe("updateFrontmatter with tags", () => {
+    it("persists tags array and round-trips correctly", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Tag Roundtrip");
+
+      await updateFrontmatter(filePath, { tags: ["work", "debug"] });
+
+      const parsed = await readChat(filePath);
+      expect(parsed.frontmatter.tags).toEqual(["work", "debug"]);
+    });
+
+    it("tags appear in listChats after updateFrontmatter", async () => {
+      const filePath = await createChat(tmpDir, "myproject", "Updated Tags");
+
+      await updateFrontmatter(filePath, { tags: ["urgent", "review"] });
+
+      const entries = await listChats(tmpDir, "myproject");
+
+      expect(entries).toHaveLength(1);
+      expect(entries[0].tags).toEqual(["urgent", "review"]);
     });
   });
 });
