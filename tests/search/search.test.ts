@@ -6,6 +6,7 @@ import {
   searchChats,
   findMatchingLines,
   formatSearchResults,
+  type SearchResult,
 } from "../../src/search/search.ts";
 
 // Path to static fixtures for simple read-only tests
@@ -312,6 +313,229 @@ describe("search", () => {
       const innerContent = matchLines[0]!.trim();
       // Format: "...{trimmed}..." where trimmed is max 80+3 chars
       expect(innerContent.length).toBeLessThanOrEqual(5 + 80 + 3 + 3);
+    });
+  });
+
+  describe("fuzzy title search (DISC-01)", () => {
+    it('fuzzy search "ngnx" (typo) matches chat titled "nginx setup"', async () => {
+      const results = await searchChats(FIXTURE_ROOT, "ngnx", "project-a");
+      const titles = results.map((r) => r.chatTitle);
+      expect(titles).toContain("nginx setup");
+    });
+
+    it("fuzzy title match has matchType title, tags, and score", async () => {
+      const results = await searchChats(FIXTURE_ROOT, "ngnx", "project-a");
+      const nginx = results.find((r) => r.chatTitle === "nginx setup");
+      expect(nginx).toBeDefined();
+      expect(nginx!.matchType).toBe("title");
+      expect(nginx!.tags).toEqual(["work", "debug"]);
+      expect(nginx!.score).toBeGreaterThan(0);
+    });
+
+    it("title-only fuzzy match has empty matches array", async () => {
+      // "ngnx" is a typo for "nginx" -- it won't appear in content body
+      const results = await searchChats(FIXTURE_ROOT, "ngnx", "project-a");
+      const nginx = results.find((r) => r.chatTitle === "nginx setup");
+      expect(nginx).toBeDefined();
+      expect(nginx!.matches).toEqual([]);
+    });
+  });
+
+  describe("tag search via fuzzy index (D-08)", () => {
+    it('searching "work" returns chats tagged "work"', async () => {
+      const results = await searchChats(FIXTURE_ROOT, "work", "project-a");
+      // "nginx setup" has tags ["work", "debug"], "quick question" has tags ["work"]
+      const titles = results.map((r) => r.chatTitle);
+      expect(titles).toContain("nginx setup");
+      expect(titles).toContain("quick question");
+    });
+
+    it("result tags include the matched tag", async () => {
+      const results = await searchChats(FIXTURE_ROOT, "work", "project-a");
+      const nginx = results.find((r) => r.chatTitle === "nginx setup");
+      expect(nginx).toBeDefined();
+      expect(nginx!.tags).toContain("work");
+    });
+  });
+
+  describe("unified ranking (DISC-02)", () => {
+    it('chat matching both title and content gets matchType "both"', async () => {
+      // "nginx" appears in title "nginx setup" AND in content body
+      const results = await searchChats(FIXTURE_ROOT, "nginx", "project-a");
+      const nginx = results.find((r) => r.chatTitle === "nginx setup");
+      expect(nginx).toBeDefined();
+      expect(nginx!.matchType).toBe("both");
+    });
+
+    it("results are sorted by score descending", async () => {
+      const results = await searchChats(
+        FIXTURE_ROOT,
+        "nginx",
+        "project-a",
+      );
+      for (let i = 1; i < results.length; i++) {
+        expect(results[i - 1]!.score).toBeGreaterThanOrEqual(
+          results[i]!.score,
+        );
+      }
+    });
+
+    it("content-only matches have a base score of 0.8", async () => {
+      // "recursion" matches content in chat-one, chat-many-matches but
+      // NOT fuzzy title match for chat-one ("Algorithm Discussion")
+      const results = await searchChats(
+        FIXTURE_ROOT,
+        "explain recursion",
+        "project-a",
+      );
+      const contentOnly = results.filter((r) => r.matchType === "content");
+      for (const r of contentOnly) {
+        expect(r.score).toBe(0.8);
+      }
+    });
+
+    it("all results have score field as number", async () => {
+      const results = await searchChats(
+        FIXTURE_ROOT,
+        "recursion",
+        undefined,
+        true,
+      );
+      for (const r of results) {
+        expect(typeof r.score).toBe("number");
+        expect(r.score).toBeGreaterThan(0);
+        expect(r.score).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it("all results have matchType field", async () => {
+      const results = await searchChats(
+        FIXTURE_ROOT,
+        "recursion",
+        undefined,
+        true,
+      );
+      for (const r of results) {
+        expect(["title", "content", "both"]).toContain(r.matchType);
+      }
+    });
+
+    it("all results have tags field as string array", async () => {
+      const results = await searchChats(
+        FIXTURE_ROOT,
+        "recursion",
+        undefined,
+        true,
+      );
+      for (const r of results) {
+        expect(Array.isArray(r.tags)).toBe(true);
+      }
+    });
+  });
+
+  describe("formatSearchResults with tags", () => {
+    it("title-only match shows tags in alphabetical order", () => {
+      const results: SearchResult[] = [
+        {
+          chatPath: "/a.md",
+          chatTitle: "nginx setup",
+          project: "project-a",
+          lastModified: new Date("2026-03-22"),
+          tags: ["work", "debug"],
+          matches: [],
+          matchType: "title",
+          score: 0.9,
+        },
+      ];
+
+      const { formatted } = formatSearchResults(results, "ngnx");
+      expect(formatted).toContain("  1. nginx setup [debug, work]  [project-a]");
+    });
+
+    it("title-only match with no tags omits brackets", () => {
+      const results: SearchResult[] = [
+        {
+          chatPath: "/a.md",
+          chatTitle: "quick question",
+          project: "project-a",
+          lastModified: new Date("2026-03-21"),
+          tags: [],
+          matches: [],
+          matchType: "title",
+          score: 0.85,
+        },
+      ];
+
+      const { formatted } = formatSearchResults(results, "question");
+      expect(formatted).toContain("  1. quick question  [project-a]");
+      // No empty [] should appear
+      expect(formatted).not.toContain("[]");
+    });
+
+    it("content match still shows content lines", () => {
+      const results: SearchResult[] = [
+        {
+          chatPath: "/a.md",
+          chatTitle: "Algorithm Discussion",
+          project: "project-a",
+          lastModified: new Date("2026-03-20"),
+          tags: [],
+          matches: [
+            { lineNumber: 7, line: "Can you explain recursion to me?" },
+          ],
+          matchType: "content",
+          score: 0.8,
+        },
+      ];
+
+      const { formatted } = formatSearchResults(results, "recursion");
+      expect(formatted).toContain("...Can you explain recursion to me?...");
+    });
+
+    it("title-only match shows no content lines", () => {
+      const results: SearchResult[] = [
+        {
+          chatPath: "/a.md",
+          chatTitle: "nginx setup",
+          project: "project-a",
+          lastModified: new Date("2026-03-22"),
+          tags: ["work", "debug"],
+          matches: [],
+          matchType: "title",
+          score: 0.9,
+        },
+      ];
+
+      const { formatted } = formatSearchResults(results, "ngnx");
+      const lines = formatted.split("\n");
+      // After the title line, there should be no "..." content lines
+      const contentLines = lines.filter(
+        (l: string) => l.trim().startsWith("...") && l.trim().endsWith("..."),
+      );
+      expect(contentLines).toHaveLength(0);
+    });
+
+    it('header is "Found {n} chat(s):\\n"', () => {
+      const results: SearchResult[] = [
+        {
+          chatPath: "/a.md",
+          chatTitle: "Test",
+          project: "proj",
+          lastModified: new Date("2026-03-20"),
+          tags: [],
+          matches: [{ lineNumber: 1, line: "match" }],
+          matchType: "content",
+          score: 0.8,
+        },
+      ];
+
+      const { formatted } = formatSearchResults(results, "match");
+      expect(formatted).toContain("Found 1 chat(s):\n");
+    });
+
+    it('empty state shows No matches found for "query".', () => {
+      const { formatted } = formatSearchResults([], "nonexistent");
+      expect(formatted).toBe('No matches found for "nonexistent".');
     });
   });
 });
