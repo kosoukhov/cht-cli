@@ -3,6 +3,8 @@ import { stdin, stdout } from "node:process";
 import { createChat, listChats } from "../store/chat-store.ts";
 import { resolveStorageRoot, DEFAULT_PROJECT } from "../utils/paths.ts";
 import { runRepl } from "../repl/repl.ts";
+import { resolveDefaultModel } from "../models/model-registry.ts";
+import { readProjectConfig } from "../store/project-store.ts";
 
 /**
  * Format a date as a relative string per UI-SPEC:
@@ -25,7 +27,21 @@ function formatRelativeDate(date: Date): string {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const includeFlag = args.includes("--include");
-  const nonFlagArgs = args.filter((a) => a !== "--include");
+
+  // Parse --model flag and its value
+  const modelFlagIdx = args.indexOf("--model");
+  let flagModel: string | undefined;
+  if (modelFlagIdx !== -1 && args[modelFlagIdx + 1]) {
+    flagModel = args[modelFlagIdx + 1];
+  }
+
+  // Filter out all flags and their values from positional args
+  const nonFlagArgs = args.filter((a, i) => {
+    if (a === "--include") return false;
+    if (a === "--model") return false;
+    if (i > 0 && args[i - 1] === "--model") return false;
+    return true;
+  });
   const project = nonFlagArgs[0] || DEFAULT_PROJECT;
   const storageRoot = resolveStorageRoot();
 
@@ -63,7 +79,16 @@ async function main(): Promise<void> {
     }
   }
 
-  const chatPath = await createChat(storageRoot, project, "(untitled)");
+  // Resolve model via priority chain: --model flag > project config > env var > fallback
+  const projectConfig = await readProjectConfig(storageRoot, project);
+  const resolvedModel = resolveDefaultModel({
+    flagModel,
+    configModel: projectConfig.model,
+  });
+
+  const chatPath = await createChat(storageRoot, project, "(untitled)", {
+    model: resolvedModel,
+  });
   await runRepl(chatPath, storageRoot, initialInclude ? { initialInclude } : undefined);
 }
 
