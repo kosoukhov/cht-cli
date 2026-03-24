@@ -3,7 +3,7 @@ import { stdin, stdout } from "node:process";
 import Anthropic from "@anthropic-ai/sdk";
 import { readChat, appendMessage, updateFrontmatter, deleteChat, archiveChat } from "../store/chat-store.ts";
 import { resolveSystemPrompt, readProjectConfig } from "../store/project-store.ts";
-import { sendAndStream } from "../api/client.ts";
+import { sendAndStream, getClient } from "../api/client.ts";
 import { chatMessagesToApiMessages } from "../api/messages.ts";
 import { generateChatTitle } from "../api/title-generator.ts";
 import { parseUserInput } from "./input-parser.ts";
@@ -13,6 +13,7 @@ import { assembleContext } from "../context/context-assembler.ts";
 import { summarizeMessages } from "../context/summarizer.ts";
 import { searchChats, formatSearchResults } from "../search/search.ts";
 import { listChats, readChat as readChatFile } from "../store/chat-store.ts";
+import { resolveModelAlias, listAvailableModels, formatModelListEntry } from "../models/model-registry.ts";
 import type { ChatMessage, ParsedChat } from "../types.ts";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 
@@ -99,7 +100,7 @@ export async function runRepl(
 
   // Read project config for context_window override (D-07)
   const projectConfig = await readProjectConfig(storageRoot, chat.frontmatter.project);
-  const contextLimit = getContextWindowLimit(
+  let contextLimit = getContextWindowLimit(
     chat.frontmatter.model || "claude-sonnet-4-20250514",
     projectConfig.context_window,
   );
@@ -420,10 +421,77 @@ export async function runRepl(
         continue;
       }
 
+      // /model command (D-07, D-08, D-09, D-10)
+      if (userInput.trim() === "/model" || userInput.trim().startsWith("/model ")) {
+        const arg = userInput.trim().slice("/model".length).trim();
+
+        let newModel: string;
+
+        if (!arg) {
+          // D-07: Interactive picker (numbered list)
+          try {
+            const models = await listAvailableModels(getClient());
+            if (models.length === 0) {
+              console.log("No models available.");
+              continue;
+            }
+            const currentModel = chat.frontmatter.model;
+            console.log("Available models:\n");
+            for (let i = 0; i < models.length; i++) {
+              const m = models[i]!;
+              const marker = m.id === currentModel ? "  <-- current" : "";
+              console.log(`  ${i + 1}. ${formatModelListEntry(m)}${marker}`);
+            }
+            console.log();
+            const answer = await rl.question("Enter number to switch, or q to cancel: ");
+            if (answer.trim().toLowerCase() === "q" || answer.trim() === "") {
+              continue;
+            }
+            const num = parseInt(answer.trim(), 10);
+            if (isNaN(num) || num < 1 || num > models.length) {
+              console.log("Invalid selection.");
+              continue;
+            }
+            newModel = models[num - 1]!.id;
+          } catch {
+            console.error("Error: Could not fetch model list. Check your API key and connection.");
+            continue;
+          }
+        } else {
+          // D-07: Direct switch with alias resolution (D-03)
+          newModel = resolveModelAlias(arg);
+        }
+
+        // D-08: Update frontmatter model field
+        try {
+          await updateFrontmatter(chatPath, { model: newModel });
+          chat.frontmatter.model = newModel;
+        } catch {
+          console.error("Error: Could not update chat file.");
+          continue;
+        }
+
+        // D-08: Recalculate context window limit (Pitfall 2 fix -- contextLimit is let, not const)
+        const newLimit = getContextWindowLimit(newModel, projectConfig.context_window);
+        contextLimit = newLimit;
+        tracker.updateLimit(newLimit);
+
+        // D-09: Feedback message
+        console.log(`Switched to ${newModel} (${formatTokenCount(newLimit)} context)`);
+
+        // D-10: Context overflow warning on downgrade
+        if (tracker.lastInputTokens > newLimit) {
+          const usage = formatTokenCount(tracker.lastInputTokens);
+          console.log(`Warning: Current usage (~${usage}) exceeds new limit. Next message may trigger auto-summarization.`);
+        }
+
+        continue;
+      }
+
       // Unknown command handler (per UI-SPEC)
       if (userInput.trim().startsWith("/")) {
         console.log(
-          `Unknown command: ${userInput.trim().split(" ")[0]}. Available: /include, /search, /tokens, /delete, /archive, /rename, /exit`,
+          `Unknown command: ${userInput.trim().split(" ")[0]}. Available: /include, /search, /tokens, /model, /delete, /archive, /rename, /exit`,
         );
         continue;
       }
