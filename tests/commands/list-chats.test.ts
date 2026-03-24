@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseRecentFlag, parseFlags } from "../../src/commands/list-chats.ts";
+import { parseRecentFlag, parseFlags, parseTagFlag } from "../../src/commands/list-chats.ts";
 
 describe("list-chats flags", () => {
   describe("parseRecentFlag", () => {
@@ -29,6 +29,21 @@ describe("list-chats flags", () => {
 
     it("returns 10 when next arg is another flag", () => {
       expect(parseRecentFlag(["node", "script", "proj", "--recent", "--archived"])).toBe(10);
+    });
+  });
+
+  describe("parseTagFlag", () => {
+    it("returns tag value when --tag followed by value", () => {
+      expect(parseTagFlag(["node", "script", "proj", "--tag", "work"])).toBe("work");
+    });
+    it("returns undefined when --tag not present", () => {
+      expect(parseTagFlag(["node", "script", "proj"])).toBeUndefined();
+    });
+    it("returns undefined when --tag has no value", () => {
+      expect(parseTagFlag(["node", "script", "proj", "--tag"])).toBeUndefined();
+    });
+    it("returns undefined when next arg is a flag", () => {
+      expect(parseTagFlag(["node", "script", "proj", "--tag", "--recent"])).toBeUndefined();
     });
   });
 
@@ -77,6 +92,16 @@ describe("list-chats flags", () => {
       const flags = parseFlags(["node", "script", "myproject", "--archived", "--archive"]);
       expect(flags.archived).toBe(true);
       expect(flags.archive).toBe(true);
+    });
+
+    it("detects --tag flag with value", () => {
+      const flags = parseFlags(["node", "script", "myproject", "--tag", "work"]);
+      expect(flags.tag).toBe("work");
+    });
+
+    it("has undefined tag when --tag not provided", () => {
+      const flags = parseFlags(["node", "script", "myproject"]);
+      expect(flags.tag).toBeUndefined();
     });
   });
 });
