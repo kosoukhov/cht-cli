@@ -130,4 +130,28 @@ describe("TokenTracker", () => {
       "[warning: context 90% full -- approaching limit]",
     );
   });
+
+  describe("updateLimit", () => {
+    it("changes the context limit", () => {
+      const tracker = new TokenTracker(200_000);
+      tracker.updateLimit(1_000_000);
+      expect(tracker.contextLimit).toBe(1_000_000);
+    });
+
+    it("recalculates usagePercent with new limit", () => {
+      const tracker = new TokenTracker(200_000);
+      tracker.update(150_000, 5_000);
+      expect(tracker.usagePercent).toBe(75); // 150k/200k
+      tracker.updateLimit(1_000_000);
+      expect(tracker.usagePercent).toBe(15); // 150k/1M
+    });
+
+    it("detects overflow when downgrading", () => {
+      const tracker = new TokenTracker(1_000_000);
+      tracker.update(150_000, 5_000);
+      expect(tracker.shouldWarn()).toBe(false); // 15% of 1M
+      tracker.updateLimit(100_000);
+      expect(tracker.shouldWarn()).toBe(true); // 150% of 100k
+    });
+  });
 });
