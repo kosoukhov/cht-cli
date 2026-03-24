@@ -91,3 +91,19 @@ export function formatAttachmentConfirmation(
     }
   }
 }
+
+/**
+ * Format a bulk attachment confirmation for 2+ files.
+ * Output: "Attached {n} files: {basename1} ({size1}), {basename2} ({size2}), ..."
+ * Uses formatFileSize from reader.ts for consistent size display.
+ */
+export function formatBulkAttachmentConfirmation(
+  attachments: FileAttachment[],
+  fileSizes: number[],
+): string {
+  const parts = attachments.map((att, i) => {
+    const basename = path.basename(att.path);
+    return `${basename} (${formatFileSize(fileSizes[i]!)})`;
+  });
+  return `Attached ${attachments.length} files: ${parts.join(", ")}`;
+}
