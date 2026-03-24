@@ -14,6 +14,7 @@ import {
   formatAttachmentMarkdown,
   formatAttachmentApiContent,
   formatAttachmentConfirmation,
+  formatBulkAttachmentConfirmation,
 } from "../attachments/formatter.ts";
 
 /**
@@ -44,13 +45,23 @@ export type ParsedInput = {
  */
 export async function parseUserInput(input: string): Promise<ParsedInput> {
   const refs = await detectFileRefs(input);
+  // Clean text using all detected refs (even those beyond the cap)
   const cleanText = cleanMessageText(input, refs);
 
+  // Enforce 10-file cap
+  const MAX_FILES = 10;
+  let cappedRefs = refs;
+  if (refs.length > MAX_FILES) {
+    console.error(`Warning: ${refs.length} files detected, attaching first 10 only.`);
+    cappedRefs = refs.slice(0, MAX_FILES);
+  }
+
   const attachments: FileAttachment[] = [];
+  const fileSizes: number[] = [];
   const errors: string[] = [];
 
-  // Read each file reference
-  for (const ref of refs) {
+  // Read each file reference (only capped set)
+  for (const ref of cappedRefs) {
     const attachment = await readAttachment(ref.path);
 
     if (attachment.type === "error") {
@@ -59,6 +70,13 @@ export async function parseUserInput(input: string): Promise<ParsedInput> {
       errors.push(errorMsg);
     } else {
       attachments.push(attachment);
+      // Collect file size for confirmation
+      try {
+        const stat = await fs.stat(attachment.path);
+        fileSizes.push(stat.size);
+      } catch {
+        fileSizes.push(0);
+      }
     }
   }
 
@@ -88,15 +106,13 @@ export async function parseUserInput(input: string): Promise<ParsedInput> {
   }
 
   // Print attachment confirmations to stderr
-  for (const att of attachments) {
-    try {
-      const stat = await fs.stat(att.path);
-      const confirmation = formatAttachmentConfirmation(att, stat.size);
-      if (confirmation) {
-        console.error(confirmation);
-      }
-    } catch {
-      // Stat failed -- skip confirmation
+  if (attachments.length >= 2) {
+    const confirmation = formatBulkAttachmentConfirmation(attachments, fileSizes);
+    console.error(confirmation);
+  } else if (attachments.length === 1) {
+    const confirmation = formatAttachmentConfirmation(attachments[0]!, fileSizes[0]!);
+    if (confirmation) {
+      console.error(confirmation);
     }
   }
 
