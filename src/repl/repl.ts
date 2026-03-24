@@ -14,6 +14,7 @@ import { summarizeMessages } from "../context/summarizer.ts";
 import { searchChats, formatSearchResults } from "../search/search.ts";
 import { listChats, readChat as readChatFile } from "../store/chat-store.ts";
 import { resolveModelAlias, listAvailableModels, formatModelListEntry } from "../models/model-registry.ts";
+import { normalizeTag } from "../tags/normalize.ts";
 import type { ChatMessage, ParsedChat } from "../types.ts";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages";
 
@@ -488,10 +489,137 @@ export async function runRepl(
         continue;
       }
 
+      // /tags -- list all tags in project (D-03, TAGS-04)
+      if (userInput.trim() === "/tags") {
+        try {
+          const projectChats = await listChats(storageRoot, chat.frontmatter.project);
+          const tagCounts = new Map<string, number>();
+          for (const c of projectChats) {
+            for (const t of c.tags) {
+              tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+            }
+          }
+          if (tagCounts.size === 0) {
+            console.log(`No tags found in "${chat.frontmatter.project}".`);
+            continue;
+          }
+          const sorted = [...tagCounts.entries()].sort((a, b) => {
+            if (b[1] !== a[1]) return b[1] - a[1];
+            return a[0].localeCompare(b[0]);
+          });
+          console.log(`Tags in "${chat.frontmatter.project}":\n`);
+          for (const [tag, count] of sorted) {
+            console.log(`  ${tag} (${count})`);
+          }
+          console.log();
+        } catch {
+          console.error("Error: Could not read chat files. Check that the storage directory is accessible.");
+        }
+        continue;
+      }
+
+      // /tag command -- show, add, remove tags (D-01, D-02, TAGS-01, TAGS-02)
+      if (userInput.trim() === "/tag" || userInput.trim().startsWith("/tag ")) {
+        const tagInput = userInput.trim().slice("/tag".length).trim();
+
+        if (!tagInput) {
+          // Show current chat tags (D-01)
+          const currentTags = chat.frontmatter.tags || [];
+          if (currentTags.length > 0) {
+            console.log(`Tags: ${currentTags.join(", ")}`);
+          } else {
+            console.log("No tags.");
+          }
+          continue;
+        }
+
+        if (tagInput === "add") {
+          console.log("Usage: /tag add <tags>");
+          continue;
+        }
+
+        if (tagInput.startsWith("add ")) {
+          const rawTags = tagInput.slice("add ".length).trim().split(/\s+/);
+          const normalizedTags: string[] = [];
+          for (const raw of rawTags) {
+            const normalized = normalizeTag(raw);
+            if (normalized === null) {
+              console.error(`Error: Invalid tag "${raw}". Tags must contain letters or numbers.`);
+              continue;
+            }
+            if (raw.toLowerCase() !== normalized) {
+              console.log(`Normalized: "${raw}" -> ${normalized}`);
+            }
+            normalizedTags.push(normalized);
+          }
+          if (normalizedTags.length === 0) {
+            continue;
+          }
+          const currentTags = chat.frontmatter.tags || [];
+          const merged = [...new Set([...currentTags, ...normalizedTags])];
+          try {
+            await updateFrontmatter(chatPath, { tags: merged });
+            chat.frontmatter.tags = merged;
+            console.log(`Tagged: ${normalizedTags.join(", ")}`);
+          } catch {
+            console.error("Error: Could not update tags. Check file permissions.");
+          }
+          continue;
+        }
+
+        if (tagInput === "remove") {
+          console.log("Usage: /tag remove <tags>");
+          continue;
+        }
+
+        if (tagInput.startsWith("remove ")) {
+          const rawTags = tagInput.slice("remove ".length).trim().split(/\s+/);
+          const normalizedTags: string[] = [];
+          for (const raw of rawTags) {
+            const normalized = normalizeTag(raw);
+            if (normalized === null) {
+              console.error(`Error: Invalid tag "${raw}". Tags must contain letters or numbers.`);
+              continue;
+            }
+            if (raw.toLowerCase() !== normalized) {
+              console.log(`Normalized: "${raw}" -> ${normalized}`);
+            }
+            normalizedTags.push(normalized);
+          }
+          if (normalizedTags.length === 0) {
+            continue;
+          }
+          const currentTags = chat.frontmatter.tags || [];
+          const removed: string[] = [];
+          for (const tag of normalizedTags) {
+            if (currentTags.includes(tag)) {
+              removed.push(tag);
+            } else {
+              console.log(`Tag "${tag}" not found on this chat.`);
+            }
+          }
+          if (removed.length > 0) {
+            const remaining = currentTags.filter(t => !removed.includes(t));
+            try {
+              await updateFrontmatter(chatPath, { tags: remaining });
+              chat.frontmatter.tags = remaining;
+              console.log(`Untagged: ${removed.join(", ")}`);
+            } catch {
+              console.error("Error: Could not update tags. Check file permissions.");
+            }
+          }
+          continue;
+        }
+
+        // Unknown subcommand
+        console.log("Usage: /tag [add <tags> | remove <tags>]");
+        continue;
+      }
+
       // Unknown command handler (per UI-SPEC)
       if (userInput.trim().startsWith("/")) {
         console.log(
-          `Unknown command: ${userInput.trim().split(" ")[0]}. Available: /include, /search, /tokens, /model, /delete, /archive, /rename, /exit`,
+          `Unknown command: ${userInput.trim().split(" ")[0]}. Available: /include, /search, /tokens, /model, /delete, /archive, /rename, /tag, /tags, /exit`,
         );
         continue;
       }
