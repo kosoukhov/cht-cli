@@ -7,6 +7,7 @@ export const ChatFrontmatterSchema = z.object({
   created: z.iso.datetime(),
   model: z.string(),
   system_prompt: z.string().optional(),
+  tags: z.array(z.string()).optional(),
 });
 export type ChatFrontmatter = z.infer<typeof ChatFrontmatterSchema>;
 
@@ -38,4 +39,5 @@ export type ChatListEntry = {
   created: string;
   lastModified: Date;
   preview: string;
+  tags: string[];
 };
