@@ -44,6 +44,11 @@ export class TokenTracker {
     this._lastOutputTokens = outputTokens;
   }
 
+  /** Update the context window limit (e.g., after model switch). */
+  updateLimit(newLimit: number): void {
+    this._contextLimit = newLimit;
+  }
+
   /** Last known input token count from API response. */
   get lastInputTokens(): number {
     return this._lastInputTokens;
