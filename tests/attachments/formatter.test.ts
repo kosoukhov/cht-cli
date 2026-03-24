@@ -4,6 +4,7 @@ import {
   formatAttachmentMarkdown,
   formatAttachmentApiContent,
   formatAttachmentConfirmation,
+  formatBulkAttachmentConfirmation,
 } from "../../src/attachments/formatter.ts";
 
 const textAttachment: FileAttachment = {
@@ -111,5 +112,40 @@ describe("formatAttachmentConfirmation", () => {
   it("formats error attachment as empty string", () => {
     const result = formatAttachmentConfirmation(errorAttachment, 0);
     expect(result).toBe("");
+  });
+});
+
+describe("formatBulkAttachmentConfirmation", () => {
+  it("formats 3 text attachments as bulk summary", () => {
+    const attachments: FileAttachment[] = [
+      { type: "text", path: "/Users/me/src/main.ts", content: "x", language: "typescript" },
+      { type: "text", path: "/Users/me/src/utils.ts", content: "y", language: "typescript" },
+      { type: "text", path: "/Users/me/src/config.json", content: "{}", language: "json" },
+    ];
+    const fileSizes = [2150, 890, 340];
+    const result = formatBulkAttachmentConfirmation(attachments, fileSizes);
+    expect(result).toBe("Attached 3 files: main.ts (2.1KB), utils.ts (890B), config.json (340B)");
+  });
+
+  it("formats 2 files with correct prefix", () => {
+    const attachments: FileAttachment[] = [
+      { type: "text", path: "/Users/me/a.ts", content: "a", language: "typescript" },
+      { type: "text", path: "/Users/me/b.ts", content: "b", language: "typescript" },
+    ];
+    const fileSizes = [1024, 512];
+    const result = formatBulkAttachmentConfirmation(attachments, fileSizes);
+    expect(result).toMatch(/^Attached 2 files: /);
+    expect(result).toContain("a.ts");
+    expect(result).toContain("b.ts");
+  });
+
+  it("formats mix of text and image attachments", () => {
+    const attachments: FileAttachment[] = [
+      { type: "text", path: "/Users/me/main.ts", content: "x", language: "typescript" },
+      { type: "image", path: "/Users/me/photo.png", base64: "abc", mediaType: "image/png" },
+    ];
+    const fileSizes = [2150, 350000];
+    const result = formatBulkAttachmentConfirmation(attachments, fileSizes);
+    expect(result).toBe("Attached 2 files: main.ts (2.1KB), photo.png (341.8KB)");
   });
 });
