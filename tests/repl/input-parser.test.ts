@@ -15,6 +15,7 @@ vi.mock("../../src/attachments/formatter.ts", () => ({
   formatAttachmentMarkdown: vi.fn(),
   formatAttachmentApiContent: vi.fn(),
   formatAttachmentConfirmation: vi.fn(),
+  formatBulkAttachmentConfirmation: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", () => ({
@@ -30,6 +31,7 @@ import {
   formatAttachmentMarkdown,
   formatAttachmentApiContent,
   formatAttachmentConfirmation,
+  formatBulkAttachmentConfirmation,
 } from "../../src/attachments/formatter.ts";
 import type { FileAttachment } from "../../src/attachments/reader.ts";
 import fs from "node:fs/promises";
@@ -40,6 +42,7 @@ const mockReadAttachment = vi.mocked(readAttachment);
 const mockFormatMarkdown = vi.mocked(formatAttachmentMarkdown);
 const mockFormatApiContent = vi.mocked(formatAttachmentApiContent);
 const mockFormatConfirmation = vi.mocked(formatAttachmentConfirmation);
+const mockFormatBulkConfirmation = vi.mocked(formatBulkAttachmentConfirmation);
 const mockStat = vi.mocked(fs.stat);
 
 describe("parseUserInput", () => {
@@ -185,5 +188,120 @@ describe("parseUserInput", () => {
     expect(result.attachments[0]).toBe(textAttachment);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("Unsupported file type");
+  });
+
+  it("uses bulk confirmation for 3 file refs", async () => {
+    const att1: FileAttachment = { type: "text", path: "/tmp/a.ts", content: "a", language: "typescript" };
+    const att2: FileAttachment = { type: "text", path: "/tmp/b.ts", content: "b", language: "typescript" };
+    const att3: FileAttachment = { type: "text", path: "/tmp/c.ts", content: "c", language: "typescript" };
+
+    mockDetectFileRefs.mockResolvedValue([
+      { path: "/tmp/a.ts", raw: "/tmp/a.ts" },
+      { path: "/tmp/b.ts", raw: "/tmp/b.ts" },
+      { path: "/tmp/c.ts", raw: "/tmp/c.ts" },
+    ]);
+    mockCleanMessageText.mockReturnValue("");
+    mockReadAttachment
+      .mockResolvedValueOnce(att1)
+      .mockResolvedValueOnce(att2)
+      .mockResolvedValueOnce(att3);
+    mockFormatMarkdown.mockReturnValue("> md");
+    mockFormatApiContent.mockReturnValue({ type: "text" as const, text: "file" });
+    mockStat.mockResolvedValue({ size: 100 } as any);
+    mockFormatBulkConfirmation.mockReturnValue("Attached 3 files: a.ts (100B), b.ts (100B), c.ts (100B)");
+
+    const stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await parseUserInput("/tmp/a.ts\n/tmp/b.ts\n/tmp/c.ts");
+
+    expect(result.attachments).toHaveLength(3);
+    expect(mockFormatBulkConfirmation).toHaveBeenCalledOnce();
+    expect(mockFormatConfirmation).not.toHaveBeenCalled();
+    stderrSpy.mockRestore();
+  });
+
+  it("uses per-file confirmation for 1 file ref", async () => {
+    const att: FileAttachment = { type: "text", path: "/tmp/single.ts", content: "x", language: "typescript" };
+
+    mockDetectFileRefs.mockResolvedValue([{ path: "/tmp/single.ts", raw: "/tmp/single.ts" }]);
+    mockCleanMessageText.mockReturnValue("");
+    mockReadAttachment.mockResolvedValue(att);
+    mockFormatMarkdown.mockReturnValue("> md");
+    mockFormatApiContent.mockReturnValue({ type: "text" as const, text: "file" });
+    mockFormatConfirmation.mockReturnValue("Attached: single.ts (text, 100B)");
+    mockStat.mockResolvedValue({ size: 100 } as any);
+
+    const stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await parseUserInput("/tmp/single.ts");
+
+    expect(result.attachments).toHaveLength(1);
+    expect(mockFormatConfirmation).toHaveBeenCalledOnce();
+    expect(mockFormatBulkConfirmation).not.toHaveBeenCalled();
+    stderrSpy.mockRestore();
+  });
+
+  it("enforces 10 file cap and prints warning", async () => {
+    // Create 12 file refs
+    const refs = Array.from({ length: 12 }, (_, i) => ({
+      path: `/tmp/file${i}.ts`,
+      raw: `/tmp/file${i}.ts`,
+    }));
+    const textAtt = (i: number): FileAttachment => ({
+      type: "text",
+      path: `/tmp/file${i}.ts`,
+      content: `content${i}`,
+      language: "typescript",
+    });
+
+    mockDetectFileRefs.mockResolvedValue(refs);
+    mockCleanMessageText.mockReturnValue("");
+    // readAttachment called for only first 10
+    for (let i = 0; i < 10; i++) {
+      mockReadAttachment.mockResolvedValueOnce(textAtt(i));
+    }
+    mockFormatMarkdown.mockReturnValue("> md");
+    mockFormatApiContent.mockReturnValue({ type: "text" as const, text: "file" });
+    mockStat.mockResolvedValue({ size: 100 } as any);
+    mockFormatBulkConfirmation.mockReturnValue("Attached 10 files: ...");
+
+    const stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await parseUserInput("12 files pasted");
+
+    expect(result.attachments).toHaveLength(10);
+    expect(mockReadAttachment).toHaveBeenCalledTimes(10);
+    // Warning printed to stderr
+    const warningCall = stderrSpy.mock.calls.find(
+      (call) => typeof call[0] === "string" && call[0].includes("Warning:")
+    );
+    expect(warningCall).toBeDefined();
+    expect(warningCall![0]).toContain("12 files detected");
+    expect(warningCall![0]).toContain("attaching first 10 only");
+    stderrSpy.mockRestore();
+  });
+
+  it("files-only input has empty text and sends attachments", async () => {
+    const att1: FileAttachment = { type: "text", path: "/tmp/a.ts", content: "a", language: "typescript" };
+    const att2: FileAttachment = { type: "text", path: "/tmp/b.ts", content: "b", language: "typescript" };
+
+    mockDetectFileRefs.mockResolvedValue([
+      { path: "/tmp/a.ts", raw: "/tmp/a.ts" },
+      { path: "/tmp/b.ts", raw: "/tmp/b.ts" },
+    ]);
+    mockCleanMessageText.mockReturnValue("");
+    mockReadAttachment
+      .mockResolvedValueOnce(att1)
+      .mockResolvedValueOnce(att2);
+    mockFormatMarkdown.mockReturnValue("> md");
+    mockFormatApiContent.mockReturnValue({ type: "text" as const, text: "file" });
+    mockStat.mockResolvedValue({ size: 100 } as any);
+    mockFormatBulkConfirmation.mockReturnValue("Attached 2 files: a.ts (100B), b.ts (100B)");
+
+    const stderrSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await parseUserInput("/tmp/a.ts\n/tmp/b.ts");
+
+    expect(result.text).toBe("");
+    expect(result.attachments).toHaveLength(2);
+    // apiContent should have file blocks but no text block
+    expect(result.apiContent.length).toBe(2);
+    stderrSpy.mockRestore();
   });
 });

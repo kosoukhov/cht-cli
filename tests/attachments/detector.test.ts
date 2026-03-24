@@ -95,6 +95,139 @@ describe("detectFileRefs", () => {
   });
 });
 
+describe("quoted path detection (D-09)", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("detects standalone quoted path with spaces", async () => {
+    mockExistence(["/Users/me/my file.txt"]);
+    const refs = await detectFileRefs('"/Users/me/my file.txt"');
+    expect(refs).toHaveLength(1);
+    expect(refs[0]!.path).toBe("/Users/me/my file.txt");
+    expect(refs[0]!.raw).toBe('"/Users/me/my file.txt"');
+  });
+
+  it("detects quoted path inline within message text", async () => {
+    mockExistence(["/Users/me/my file.txt"]);
+    const refs = await detectFileRefs('check "/Users/me/my file.txt" please');
+    expect(refs).toHaveLength(1);
+    expect(refs[0]!.path).toBe("/Users/me/my file.txt");
+    expect(refs[0]!.raw).toBe('"/Users/me/my file.txt"');
+  });
+
+  it("skips non-existent quoted paths silently", async () => {
+    mockExistence([]);
+    const refs = await detectFileRefs('"/Users/me/nonexistent file.txt"');
+    expect(refs).toEqual([]);
+  });
+
+  it("rejects relative quoted paths (must start with /)", async () => {
+    mockExistence([]);
+    const refs = await detectFileRefs('"relative/path.txt"');
+    expect(refs).toEqual([]);
+  });
+});
+
+describe("escaped path detection (D-09)", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("detects standalone escaped path with backslash-space", async () => {
+    mockExistence(["/Users/me/my file.txt"]);
+    const refs = await detectFileRefs("/Users/me/my\\ file.txt");
+    expect(refs).toHaveLength(1);
+    expect(refs[0]!.path).toBe("/Users/me/my file.txt");
+    expect(refs[0]!.raw).toBe("/Users/me/my\\ file.txt");
+  });
+
+  it("detects escaped path with multiple spaces", async () => {
+    mockExistence(["/Users/me/path with multiple spaces.txt"]);
+    const refs = await detectFileRefs("/Users/me/path\\ with\\ multiple\\ spaces.txt");
+    expect(refs).toHaveLength(1);
+    expect(refs[0]!.path).toBe("/Users/me/path with multiple spaces.txt");
+    expect(refs[0]!.raw).toBe("/Users/me/path\\ with\\ multiple\\ spaces.txt");
+  });
+
+  it("skips non-existent escaped paths silently", async () => {
+    mockExistence([]);
+    const refs = await detectFileRefs("/Users/me/missing\\ file.txt");
+    expect(refs).toEqual([]);
+  });
+});
+
+describe("multi-line path detection (D-13)", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("detects 3 paths on 3 separate lines", async () => {
+    mockExistence(["/Users/me/a.ts", "/Users/me/b.ts", "/Users/me/c.ts"]);
+    const refs = await detectFileRefs("/Users/me/a.ts\n/Users/me/b.ts\n/Users/me/c.ts");
+    expect(refs).toHaveLength(3);
+    expect(refs[0]!.path).toBe("/Users/me/a.ts");
+    expect(refs[1]!.path).toBe("/Users/me/b.ts");
+    expect(refs[2]!.path).toBe("/Users/me/c.ts");
+  });
+
+  it("detects multi-line mix of quoted, escaped, and plain paths", async () => {
+    mockExistence(["/Users/me/plain.ts", "/Users/me/my file.txt", "/Users/me/another file.ts"]);
+    const input = '/Users/me/plain.ts\n"/Users/me/my file.txt"\n/Users/me/another\\ file.ts';
+    const refs = await detectFileRefs(input);
+    expect(refs).toHaveLength(3);
+    expect(refs[0]!.path).toBe("/Users/me/plain.ts");
+    expect(refs[1]!.path).toBe("/Users/me/my file.txt");
+    expect(refs[2]!.path).toBe("/Users/me/another file.ts");
+  });
+
+  it("skips non-existent paths in multi-line paste", async () => {
+    mockExistence(["/Users/me/a.ts", "/Users/me/c.ts"]);
+    const refs = await detectFileRefs("/Users/me/a.ts\n/Users/me/missing.ts\n/Users/me/c.ts");
+    expect(refs).toHaveLength(2);
+    expect(refs[0]!.path).toBe("/Users/me/a.ts");
+    expect(refs[1]!.path).toBe("/Users/me/c.ts");
+  });
+});
+
+describe("pattern priority", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("@path syntax takes priority over quoted path", async () => {
+    mockExistence(["/Users/me/file.ts"]);
+    const refs = await detectFileRefs('check @/Users/me/file.ts please');
+    expect(refs).toHaveLength(1);
+    expect(refs[0]!.raw).toBe("@/Users/me/file.ts");
+  });
+
+  it("existing @path and standalone path tests compatibility", async () => {
+    mockExistence(["/Users/me/file.ts"]);
+    const refs = await detectFileRefs("/Users/me/file.ts");
+    expect(refs).toHaveLength(1);
+    expect(refs[0]!.raw).toBe("/Users/me/file.ts");
+  });
+});
+
+describe("cleanMessageText with new path types", () => {
+  it("removes quoted path including quotes from text", () => {
+    const refs: FileRef[] = [
+      { path: "/Users/me/my file.txt", raw: '"/Users/me/my file.txt"' },
+    ];
+    const result = cleanMessageText('check "/Users/me/my file.txt" please', refs);
+    expect(result).toBe("check  please");
+  });
+
+  it("removes escaped path from text", () => {
+    const refs: FileRef[] = [
+      { path: "/Users/me/my file.txt", raw: "/Users/me/my\\ file.txt" },
+    ];
+    const result = cleanMessageText("/Users/me/my\\ file.txt", refs);
+    expect(result).toBe("");
+  });
+});
+
 describe("cleanMessageText", () => {
   it("removes detected file references from message text", () => {
     const refs: FileRef[] = [
