@@ -123,6 +123,7 @@ export async function listChats(
         created: (data.created as string) || stat.birthtime.toISOString(),
         lastModified: stat.mtime,
         preview,
+        tags: [],
       });
     } catch {
       // Skip files that can't be read/parsed
@@ -264,6 +265,7 @@ export async function listArchivedChats(
         created: (data.created as string) || stat.birthtime.toISOString(),
         lastModified: stat.mtime,
         preview,
+        tags: [],
       });
     } catch {
       continue;
