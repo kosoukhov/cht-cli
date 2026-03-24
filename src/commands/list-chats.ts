@@ -10,6 +10,7 @@ import {
 } from "../store/chat-store.ts";
 import { listProjects } from "../store/project-store.ts";
 import { resolveStorageRoot } from "../utils/paths.ts";
+import { normalizeTag } from "../tags/normalize.ts";
 
 /**
  * Format a date as a relative string per UI-SPEC:
@@ -29,6 +30,12 @@ function formatRelativeDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function formatTagSuffix(tags: string[]): string {
+  if (tags.length === 0) return "";
+  const sorted = [...tags].sort();
+  return ` [${sorted.join(", ")}]`;
+}
+
 // --- Flag parsing utilities (exported for testing) ---
 
 export function parseRecentFlag(argv: string[]): number | undefined {
@@ -40,6 +47,14 @@ export function parseRecentFlag(argv: string[]): number | undefined {
   return isNaN(n) || n < 1 ? 10 : n;
 }
 
+export function parseTagFlag(argv: string[]): string | undefined {
+  const idx = argv.indexOf("--tag");
+  if (idx === -1) return undefined;
+  const val = argv[idx + 1];
+  if (!val || val.startsWith("--")) return undefined;
+  return val;
+}
+
 export type ListChatsFlags = {
   project: string | undefined;
   recent: number | undefined;
@@ -47,6 +62,7 @@ export type ListChatsFlags = {
   delete_: boolean;
   archive: boolean;
   restore: boolean;
+  tag: string | undefined;
 };
 
 export function parseFlags(argv: string[]): ListChatsFlags {
@@ -60,6 +76,7 @@ export function parseFlags(argv: string[]): ListChatsFlags {
     delete_: argv.includes("--delete"),
     archive: argv.includes("--archive"),
     restore: argv.includes("--restore"),
+    tag: parseTagFlag(argv),
   };
 }
 
@@ -78,7 +95,7 @@ async function interactiveDelete(
   for (let i = 0; i < chats.length; i++) {
     const chat = chats[i]!;
     const relDate = formatRelativeDate(chat.lastModified);
-    console.log(`  ${i + 1}. ${chat.title}  (${relDate})`);
+    console.log(`  ${i + 1}. ${chat.title}${formatTagSuffix(chat.tags)}  (${relDate})`);
   }
   console.log();
   const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -123,7 +140,7 @@ async function interactiveArchive(
   for (let i = 0; i < chats.length; i++) {
     const chat = chats[i]!;
     const relDate = formatRelativeDate(chat.lastModified);
-    console.log(`  ${i + 1}. ${chat.title}  (${relDate})`);
+    console.log(`  ${i + 1}. ${chat.title}${formatTagSuffix(chat.tags)}  (${relDate})`);
   }
   console.log();
   const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -169,7 +186,7 @@ async function interactiveRestore(
   for (let i = 0; i < chats.length; i++) {
     const chat = chats[i]!;
     const relDate = formatRelativeDate(chat.lastModified);
-    console.log(`  ${i + 1}. ${chat.title}  (${relDate})`);
+    console.log(`  ${i + 1}. ${chat.title}${formatTagSuffix(chat.tags)}  (${relDate})`);
   }
   console.log();
   const rl = readline.createInterface({ input: stdin, output: stdout });
@@ -197,6 +214,7 @@ async function interactiveRestore(
 async function listAllProjects(
   storageRoot: string,
   recent: number | undefined,
+  tag: string | undefined,
 ): Promise<void> {
   let projects: string[];
   try {
@@ -209,20 +227,28 @@ async function listAllProjects(
     console.log("Use /chat to start a new conversation.");
     return;
   }
+  const normalizedTag = tag ? (normalizeTag(tag) || undefined) : undefined;
   let totalChats = 0;
   for (const proj of projects) {
     let chats = await listChats(storageRoot, proj);
+    if (normalizedTag) {
+      chats = chats.filter((c) => c.tags.includes(normalizedTag));
+    }
     if (chats.length === 0) continue;
     totalChats += chats.length;
     if (recent !== undefined) {
       chats = chats.slice(0, recent);
     }
-    console.log(`Recent chats in "${proj}":`);
+    if (normalizedTag) {
+      console.log(`Recent chats in "${proj}" tagged "${normalizedTag}":`);
+    } else {
+      console.log(`Recent chats in "${proj}":`);
+    }
     console.log();
     for (let i = 0; i < chats.length; i++) {
       const chat = chats[i]!;
       const relDate = formatRelativeDate(chat.lastModified);
-      console.log(`  ${i + 1}. ${chat.title}  (${relDate})`);
+      console.log(`  ${i + 1}. ${chat.title}${formatTagSuffix(chat.tags)}  (${relDate})`);
     }
     console.log();
   }
@@ -250,7 +276,7 @@ async function main(): Promise<void> {
 
   // If no project, list all projects (existing behavior)
   if (!flags.project) {
-    await listAllProjects(storageRoot, flags.recent);
+    await listAllProjects(storageRoot, flags.recent, flags.tag);
     return;
   }
 
@@ -296,23 +322,42 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Default: list active chats (with optional --recent N)
+  // Default: list active chats (with optional --recent N and --tag)
   const chats = await listChats(storageRoot, project);
-  if (chats.length === 0) {
-    console.log(`No chats found in project "${project}".`);
-    console.log("Use /chat to start a new conversation.");
+
+  // Apply --tag filter (D-07, D-08)
+  let filtered = chats;
+  let normalizedTagFilter: string | undefined;
+  if (flags.tag) {
+    normalizedTagFilter = normalizeTag(flags.tag) || undefined;
+    if (normalizedTagFilter) {
+      filtered = chats.filter((c) => c.tags.includes(normalizedTagFilter!));
+    }
+  }
+
+  if (filtered.length === 0) {
+    if (normalizedTagFilter) {
+      console.log(`No chats tagged "${normalizedTagFilter}" in "${project}".`);
+    } else {
+      console.log(`No chats found in project "${project}".`);
+      console.log("Use /chat to start a new conversation.");
+    }
     return;
   }
-  let display = chats;
+  let display = filtered;
   if (flags.recent !== undefined) {
-    display = chats.slice(0, flags.recent);
+    display = filtered.slice(0, flags.recent);
   }
-  console.log(`Recent chats in "${project}":`);
+  if (normalizedTagFilter) {
+    console.log(`Recent chats in "${project}" tagged "${normalizedTagFilter}":`);
+  } else {
+    console.log(`Recent chats in "${project}":`);
+  }
   console.log();
   for (let i = 0; i < display.length; i++) {
     const chat = display[i]!;
     const relDate = formatRelativeDate(chat.lastModified);
-    console.log(`  ${i + 1}. ${chat.title}  (${relDate})`);
+    console.log(`  ${i + 1}. ${chat.title}${formatTagSuffix(chat.tags)}  (${relDate})`);
   }
   console.log();
 }
