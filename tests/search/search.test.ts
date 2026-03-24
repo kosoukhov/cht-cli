@@ -245,15 +245,18 @@ describe("search", () => {
     });
 
     it("with results produces correct format", () => {
-      const results = [
+      const results: SearchResult[] = [
         {
           chatPath: "/path/to/chat.md",
           chatTitle: "Algorithm Discussion",
           project: "my-project",
           lastModified: new Date("2026-03-20"),
+          tags: [],
           matches: [
             { lineNumber: 7, line: "Can you explain recursion to me?" },
           ],
+          matchType: "content",
+          score: 0.8,
         },
       ];
 
@@ -265,20 +268,26 @@ describe("search", () => {
     });
 
     it("multiple results have numbered items", () => {
-      const results = [
+      const results: SearchResult[] = [
         {
           chatPath: "/a.md",
           chatTitle: "Chat A",
           project: "proj",
           lastModified: new Date("2026-03-20"),
+          tags: [],
           matches: [{ lineNumber: 1, line: "match a" }],
+          matchType: "content",
+          score: 0.8,
         },
         {
           chatPath: "/b.md",
           chatTitle: "Chat B",
           project: "proj",
           lastModified: new Date("2026-03-19"),
+          tags: [],
           matches: [{ lineNumber: 2, line: "match b" }],
+          matchType: "content",
+          score: 0.8,
         },
       ];
 
@@ -291,13 +300,16 @@ describe("search", () => {
     it("lines longer than 80 chars are trimmed with ellipsis", () => {
       const longLine =
         "This is a very long line that exceeds eighty characters in length and should be trimmed with an ellipsis at the end";
-      const results = [
+      const results: SearchResult[] = [
         {
           chatPath: "/a.md",
           chatTitle: "Chat",
           project: "proj",
           lastModified: new Date("2026-03-20"),
+          tags: [],
           matches: [{ lineNumber: 1, line: longLine }],
+          matchType: "content",
+          score: 0.8,
         },
       ];
 

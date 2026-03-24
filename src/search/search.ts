@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
+import Fuse from "fuse.js";
 import { listChats } from "../store/chat-store.ts";
 import { listProjects } from "../store/project-store.ts";
+import type { ChatListEntry } from "../types.ts";
 
 export type SearchMatch = {
   lineNumber: number;
@@ -12,19 +14,47 @@ export type SearchResult = {
   chatTitle: string;
   project: string;
   lastModified: Date;
+  tags: string[];
   matches: SearchMatch[];
+  matchType: "title" | "content" | "both";
+  score: number;
 };
 
 const MAX_RESULTS = 20;
 const MAX_MATCHES_PER_CHAT = 3;
 
+/** Content-only matches get a fixed base relevance score */
+const CONTENT_BASE_SCORE = 0.8;
+
+/** Fuse.js search item built from ChatListEntry metadata */
+type FuzzySearchItem = {
+  title: string;
+  tags: string[];
+  path: string;
+  project: string;
+  lastModified: Date;
+};
+
+/** Fuse.js configuration per UI-SPEC contract */
+const FUSE_OPTIONS = {
+  keys: [
+    { name: "title" as const, weight: 0.7 },
+    { name: "tags" as const, weight: 0.3 },
+  ],
+  threshold: 0.4,
+  includeScore: true,
+  shouldSort: true,
+  minMatchCharLength: 2,
+};
+
 /**
- * Search chat files for a query string.
- * Uses listChats for enumeration and fs.readFile for content scanning.
- * Results are sorted by lastModified descending (most recent first).
+ * Search chat files using two-tier architecture:
+ * 1. Fuzzy search on metadata (title + tags) via fuse.js
+ * 2. Exact substring search on content body via findMatchingLines
+ * Results are merged into a unified ranked list sorted by relevance score.
  *
  * @param storageRoot - Root directory for chat storage
- * @param query - Text to search for (case-insensitive)
+ * @param query - Text to search for
  * @param project - Specific project to search (defaults to "general")
  * @param allProjects - If true, search all projects
  */
@@ -40,30 +70,88 @@ export async function searchChats(
     ? await listProjects(storageRoot)
     : [project || "general"];
 
-  const results: SearchResult[] = [];
+  // Collect all chat entries and their content across projects
+  const allChats: {
+    entry: ChatListEntry;
+    project: string;
+    content: string;
+  }[] = [];
 
   for (const proj of projects) {
-    if (results.length >= MAX_RESULTS) break;
     const chats = await listChats(storageRoot, proj);
     for (const chat of chats) {
-      if (results.length >= MAX_RESULTS) break;
       const content = await fs.readFile(chat.path, "utf-8");
-      const matches = findMatchingLines(content, query);
-      if (matches.length > 0) {
-        results.push({
-          chatPath: chat.path,
-          chatTitle: chat.title,
-          project: proj,
-          lastModified: chat.lastModified,
-          matches,
-        });
-      }
+      allChats.push({ entry: chat, project: proj, content });
     }
   }
 
-  // Sort by lastModified descending (most recent first)
-  results.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
-  return results;
+  // Tier 1: Fuzzy search on metadata (title + tags) via fuse.js
+  const fuzzyItems: FuzzySearchItem[] = allChats.map((c) => ({
+    title: c.entry.title,
+    tags: c.entry.tags,
+    path: c.entry.path,
+    project: c.project,
+    lastModified: c.entry.lastModified,
+  }));
+
+  const fuse = new Fuse(fuzzyItems, FUSE_OPTIONS);
+  const fuzzyHits = fuse.search(query);
+
+  // Build a map of fuzzy hits by path for fast lookup
+  const fuzzyMap = new Map<string, number>();
+  for (const hit of fuzzyHits) {
+    // Fuse score: 0 = perfect, 1 = mismatch; invert to 1 = perfect, 0 = mismatch
+    const relevance = 1 - (hit.score ?? 1);
+    fuzzyMap.set(hit.item.path, relevance);
+  }
+
+  // Tier 2: Exact content search + merge with fuzzy results
+  const results: SearchResult[] = [];
+
+  for (const chatData of allChats) {
+    const { entry, project: proj, content } = chatData;
+    const contentMatches = findMatchingLines(content, query);
+    const fuzzyScore = fuzzyMap.get(entry.path);
+    const hasFuzzyMatch = fuzzyScore !== undefined;
+    const hasContentMatch = contentMatches.length > 0;
+
+    if (!hasFuzzyMatch && !hasContentMatch) continue;
+
+    let matchType: "title" | "content" | "both";
+    let score: number;
+
+    if (hasFuzzyMatch && hasContentMatch) {
+      matchType = "both";
+      score = Math.max(fuzzyScore, CONTENT_BASE_SCORE);
+    } else if (hasFuzzyMatch) {
+      matchType = "title";
+      score = fuzzyScore;
+    } else {
+      matchType = "content";
+      score = CONTENT_BASE_SCORE;
+    }
+
+    results.push({
+      chatPath: entry.path,
+      chatTitle: entry.title,
+      project: proj,
+      lastModified: entry.lastModified,
+      tags: entry.tags,
+      matches: contentMatches,
+      matchType,
+      score,
+    });
+  }
+
+  // Sort by score descending (best match first), then by lastModified descending (tie-breaker)
+  results.sort(
+    (a, b) =>
+      b.score - a.score ||
+      b.lastModified.getTime() - a.lastModified.getTime(),
+  );
+
+  // Cap at MAX_RESULTS
+  return results.slice(0, MAX_RESULTS);
 }
 
 /**
@@ -125,6 +213,7 @@ function trimLine(line: string, maxLen: number = 80): string {
 
 /**
  * Format search results for display per UI-SPEC exact strings.
+ * Supports unified results with tags, matchType, and score fields.
  * Returns both formatted text and the raw results for REPL include flow.
  */
 export function formatSearchResults(
@@ -138,7 +227,15 @@ export function formatSearchResults(
   const lines: string[] = [`Found ${results.length} chat(s):\n`];
   for (let i = 0; i < results.length; i++) {
     const r = results[i]!;
-    lines.push(`  ${i + 1}. ${r.chatTitle}  [${r.project}]`);
+
+    // Build tag display: sorted alphabetically, comma-space separated in brackets
+    const tags = r.tags ?? [];
+    const tagPart =
+      tags.length > 0
+        ? ` [${[...tags].sort().join(", ")}]`
+        : "";
+
+    lines.push(`  ${i + 1}. ${r.chatTitle}${tagPart}  [${r.project}]`);
     for (const match of r.matches.slice(0, MAX_MATCHES_PER_CHAT)) {
       lines.push(`     ...${trimLine(match.line)}...`);
     }
