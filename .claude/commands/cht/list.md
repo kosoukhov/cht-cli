@@ -17,15 +17,19 @@ List chat conversations with optional filtering.
 1. Run: `node --experimental-strip-types bin/cht.ts list $ARGUMENTS`
 2. Parse the JSON output.
 3. On success (`ok: true`):
-   - If `chats` array is empty, tell the user: "No chats found. Start a new chat with /cht:new [project]."
-   - Otherwise, format each chat as:
+   - If `chats` array is empty, say: "No chats found. Start a new chat with /cht:new [project]."
+   - Otherwise, show total count at top: "N chat(s):" or "N archived chat(s):" if `--archived` was used.
+   - Format each chat as:
      ```
      {number}. {title}  ({relative_date})
-       [{tag1}, {tag2}]
+       Tags: {tag1}, {tag2}
        {preview}
      ```
-   - For relative dates use: "today" if same day, "yesterday" if one day ago, "N days ago" for 2-30 days, or "YYYY-MM-DD" for over 30 days.
-   - Only show the tags line if the chat has tags.
-   - Only show the preview line if there is a preview.
-4. On failure (`ok: false`):
-   - Tell the user: "Something went wrong: {error message}. Check that chats/ directory exists and is writable."
+   - For relative dates use the `lastModified` field:
+     - "today" if same day
+     - "yesterday" if one day ago
+     - "N days ago" for 2-30 days
+     - "YYYY-MM-DD" for over 30 days
+   - Only show the tags line if the chat has tags (non-empty tags array).
+   - Only show the preview line if preview is non-empty.
+4. On failure (`ok: false`): Say "Could not list chats: {error}."
