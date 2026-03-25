@@ -112,7 +112,7 @@ async function main(): Promise<void> {
 
       if (nonFlagArgs.length >= 2) {
         project = nonFlagArgs[0]!;
-        query = nonFlagArgs[1]!;
+        query = nonFlagArgs.slice(1).join(" ");
       } else if (nonFlagArgs.length === 1) {
         project = "general";
         query = nonFlagArgs[0]!;
