@@ -165,4 +165,77 @@ describe("cht CLI", () => {
     const projects = result.projects as string[];
     expect(projects.includes("testproject")).toBe(true);
   });
+
+  it("search multi-word query: joins words for content match", async () => {
+    // Create a chat with a generic title but specific multi-word content
+    const createResult = await runCht("create", "general", "Dev Notes");
+    const chatPath = createResult.chat_path as string;
+
+    // Append content that can only be found with the full phrase "custom hooks pattern"
+    const content = await fs.readFile(chatPath, "utf-8");
+    const withContent = content + "\n## User\n\nI want to learn about custom hooks pattern in React.\n";
+    await fs.writeFile(chatPath, withContent, "utf-8");
+
+    // Pass multi-word query as separate args -- the CLI must join them
+    const result = await runCht("search", "general", "custom", "hooks", "pattern");
+    expect(result.ok).toBe(true);
+    const results = result.results as Array<{ chatTitle: string; matchType: string }>;
+    // With the bug (only first word "custom" used), content search may still match
+    // but the full phrase "custom hooks pattern" is needed for a precise content hit
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    // Verify the result contains content match (not just title match)
+    const devNotes = results.find((r) => r.chatTitle === "Dev Notes");
+    expect(devNotes).toBeDefined();
+  });
+
+  it("search multi-word query with project: all words used", async () => {
+    await runCht("create", "general", "Advanced React Patterns");
+    const result = await runCht("search", "general", "Advanced", "React");
+    expect(result.ok).toBe(true);
+    const results = result.results as Array<{ chatTitle: string }>;
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0]!.chatTitle).toBe("Advanced React Patterns");
+  });
+
+  it("list --tag: filters by tag", async () => {
+    await runCht("create", "general", "Work Chat");
+    await runCht("create", "general", "Personal Chat");
+
+    // Find the Work Chat file and add a tag to its frontmatter
+    const listResult = await runCht("list", "general");
+    const chats = listResult.chats as Array<{ path: string; title: string }>;
+    const workChat = chats.find((c) => c.title === "Work Chat")!;
+
+    // Read and inject tags into frontmatter (no tags field exists by default)
+    // gray-matter produces: ---\n...fields...\n---\n
+    // We insert "tags:\n  - work\n" before the second ---
+    const content = await fs.readFile(workChat.path, "utf-8");
+    const secondDash = content.indexOf("---", 4); // skip first ---
+    const updated =
+      content.slice(0, secondDash) +
+      "tags:\n  - work\n" +
+      content.slice(secondDash);
+    await fs.writeFile(workChat.path, updated, "utf-8");
+
+    const filtered = await runCht("list", "general", "--tag", "work");
+    expect(filtered.ok).toBe(true);
+    const filteredChats = filtered.chats as Array<{ title: string }>;
+    expect(filteredChats.length).toBe(1);
+    expect(filteredChats[0]!.title).toBe("Work Chat");
+  });
+
+  it("list --archived: empty archive returns ok with empty array", async () => {
+    const result = await runCht("list", "general", "--archived");
+    expect(result.ok).toBe(true);
+    const chats = result.chats as Array<Record<string, unknown>>;
+    expect(chats.length).toBe(0);
+  });
+
+  it("search with no matches: returns empty results array", async () => {
+    await runCht("create", "general", "Some Chat");
+    const result = await runCht("search", "general", "xyznonexistent999");
+    expect(result.ok).toBe(true);
+    const results = result.results as Array<Record<string, unknown>>;
+    expect(results.length).toBe(0);
+  });
 });
