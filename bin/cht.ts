@@ -6,6 +6,7 @@ import {
   archiveChat,
   restoreChat,
   listArchivedChats,
+  appendMessage,
 } from "../src/store/chat-store.ts";
 import { searchChats } from "../src/search/search.ts";
 import { listProjects } from "../src/store/project-store.ts";
@@ -215,10 +216,39 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "append": {
+      const role = args[0] as "user" | "assistant";
+      if (!role || (role !== "user" && role !== "assistant")) {
+        output({ ok: false, error: "Usage: append <user|assistant> -- content on stdin" });
+        process.exit(1);
+        return;
+      }
+      // Read content from stdin
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(chunk);
+      }
+      const content = Buffer.concat(chunks).toString("utf-8").trim();
+      if (!content) {
+        output({ ok: false, error: "No content provided on stdin" });
+        process.exit(1);
+        return;
+      }
+      const active = await getActiveChat();
+      if (!active) {
+        output({ ok: false, error: "No active chat session" });
+        process.exit(1);
+        return;
+      }
+      await appendMessage(active.chat_path, role, content);
+      output({ ok: true, role, chat_path: active.chat_path });
+      break;
+    }
+
     default: {
       output({
         ok: false,
-        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, session-get, session-set, session-clear, projects`,
+        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, session-get, session-set, session-clear, projects`,
       });
       process.exit(1);
     }
