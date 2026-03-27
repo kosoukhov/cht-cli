@@ -7,6 +7,7 @@ import {
   restoreChat,
   listArchivedChats,
   appendMessage,
+  updateFrontmatter,
 } from "../src/store/chat-store.ts";
 import { searchChats } from "../src/search/search.ts";
 import { listProjects } from "../src/store/project-store.ts";
@@ -17,6 +18,7 @@ import {
   clearActiveChat,
   clearIfMatches,
 } from "../src/session/state.ts";
+import { normalizeTag } from "../src/tags/normalize.ts";
 import type { ChatListEntry } from "../src/types.ts";
 import type { SearchResult } from "../src/search/search.ts";
 
@@ -245,10 +247,75 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "rename": {
+      const chatPath = args[0];
+      const newTitle = args.slice(1).join(" ");
+      if (!chatPath || !newTitle) {
+        output({ ok: false, error: "Usage: rename <path> <new-title>" });
+        process.exit(1);
+        return;
+      }
+      await updateFrontmatter(chatPath, { title: newTitle });
+      output({ ok: true, renamed: chatPath, title: newTitle });
+      break;
+    }
+
+    case "tag-add": {
+      const chatPath = args[0];
+      const rawTag = args[1];
+      if (!chatPath || !rawTag) {
+        output({ ok: false, error: "Usage: tag-add <path> <tag>" });
+        process.exit(1);
+        return;
+      }
+      const tag = normalizeTag(rawTag);
+      if (!tag) {
+        output({ ok: false, error: `Invalid tag: "${rawTag}" normalizes to empty` });
+        process.exit(1);
+        return;
+      }
+      const chat = await readChat(chatPath);
+      const currentTags = chat.frontmatter.tags || [];
+      if (currentTags.includes(tag)) {
+        output({ ok: true, tag, tags: currentTags });
+        break;
+      }
+      const newTags = [...currentTags, tag];
+      await updateFrontmatter(chatPath, { tags: newTags });
+      output({ ok: true, tag, tags: newTags });
+      break;
+    }
+
+    case "tag-remove": {
+      const chatPath = args[0];
+      const rawTag = args[1];
+      if (!chatPath || !rawTag) {
+        output({ ok: false, error: "Usage: tag-remove <path> <tag>" });
+        process.exit(1);
+        return;
+      }
+      const tag = normalizeTag(rawTag);
+      if (!tag) {
+        output({ ok: false, error: `Invalid tag: "${rawTag}" normalizes to empty` });
+        process.exit(1);
+        return;
+      }
+      const chat = await readChat(chatPath);
+      const currentTags = chat.frontmatter.tags || [];
+      if (!currentTags.includes(tag)) {
+        output({ ok: true, tag, tags: currentTags });
+        break;
+      }
+      const newTags = currentTags.filter((t: string) => t !== tag);
+      await updateFrontmatter(chatPath, { tags: newTags });
+      output({ ok: true, tag, tags: newTags });
+      break;
+    }
+
     default: {
       output({
         ok: false,
-        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, session-get, session-set, session-clear, projects`,
+        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects`,
       });
       process.exit(1);
     }
