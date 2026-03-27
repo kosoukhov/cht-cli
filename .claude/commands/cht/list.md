@@ -21,8 +21,7 @@ List chat conversations with optional filtering.
    - Otherwise, show total count at top: "N chat(s):" or "N archived chat(s):" if `--archived` was used.
    - Format each chat as:
      ```
-     {number}. {title}  ({relative_date})
-       Tags: {tag1}, {tag2}
+     {number}. {title} [#tag1 #tag2]  ({relative_date})
        {preview}
      ```
    - For relative dates use the `lastModified` field:
@@ -30,6 +29,6 @@ List chat conversations with optional filtering.
      - "yesterday" if one day ago
      - "N days ago" for 2-30 days
      - "YYYY-MM-DD" for over 30 days
-   - Only show the tags line if the chat has tags (non-empty tags array).
+   - Only show the `[#tag1 #tag2]` part if the chat has tags (non-empty tags array). Each tag prefixed with `#`, separated by single space inside brackets.
    - Only show the preview line if preview is non-empty.
 4. On failure (`ok: false`): Say "Could not list chats: {error}."
