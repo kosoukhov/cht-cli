@@ -59,10 +59,16 @@ describe("cht/include.md skill", () => {
       expect(content.toLowerCase()).toContain("summarize");
     });
 
-    it("does NOT contain 'session-set'", () => {
+    it("does NOT invoke 'session-set' (only warns against it)", () => {
       const raw = fs.readFileSync(INCLUDE_PATH, "utf-8");
       const { content } = matter(raw);
-      expect(content).not.toContain("session-set");
+      // session-set may only appear in a "Do NOT run" warning, never as an actual command
+      const lines = content.split("\n").filter((l) => l.includes("session-set"));
+      for (const line of lines) {
+        expect(line.toLowerCase()).toContain("not");
+      }
+      // Must not appear as a backtick command like `session-set <path>`
+      expect(content).not.toMatch(/`node\b.*session-set/);
     });
 
     it("contains 'Read' tool instruction", () => {
