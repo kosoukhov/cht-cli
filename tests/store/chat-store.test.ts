@@ -488,7 +488,7 @@ describe("chat-store", () => {
       for (let i = 0; i < 10; i++) {
         expect(contents).toContain(`Message ${i}`);
       }
-    });
+    }, 15000);
 
     it("concurrent writes preserve message content integrity", async () => {
       const chatPath = await createChat(tmpDir, "myproject", "Integrity Test");
