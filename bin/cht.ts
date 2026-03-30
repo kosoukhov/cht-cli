@@ -19,6 +19,7 @@ import {
   clearIfMatches,
 } from "../src/session/state.ts";
 import { normalizeTag } from "../src/tags/normalize.ts";
+import fs from "node:fs/promises";
 import type { ChatListEntry } from "../src/types.ts";
 import type { SearchResult } from "../src/search/search.ts";
 
@@ -312,10 +313,54 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "status": {
+      const active = await getActiveChat();
+      if (!active) {
+        output({ ok: false, error: "No active chat session. Start one with /cht:new or /cht:continue." });
+        process.exit(1);
+        return;
+      }
+
+      let stat: import("node:fs").Stats;
+      let chat: import("../src/types.ts").ParsedChat;
+      try {
+        stat = await fs.stat(active.chat_path);
+        chat = await readChat(active.chat_path);
+      } catch {
+        output({ ok: false, error: "Active chat file not found. It may have been deleted or archived." });
+        process.exit(1);
+        return;
+      }
+
+      const messageCount = chat.messages.length;
+      const fileSizeBytes = stat.size;
+      const estimatedTokens = Math.round(fileSizeBytes / 4);
+
+      const MESSAGE_THRESHOLD = 50;
+      const SIZE_THRESHOLD = 102400; // 100 KB
+
+      const isLarge = messageCount >= MESSAGE_THRESHOLD || fileSizeBytes >= SIZE_THRESHOLD;
+      const warning = isLarge
+        ? "Chat is getting large. Run /cht:rollover to continue in a new file with context linked."
+        : null;
+
+      output({
+        ok: true,
+        chat_path: active.chat_path,
+        title: chat.frontmatter.title,
+        project: chat.frontmatter.project,
+        message_count: messageCount,
+        file_size_bytes: fileSizeBytes,
+        estimated_tokens: estimatedTokens,
+        warning,
+      });
+      break;
+    }
+
     default: {
       output({
         ok: false,
-        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects`,
+        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects, status`,
       });
       process.exit(1);
     }
