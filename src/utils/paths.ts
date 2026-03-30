@@ -5,10 +5,19 @@ const PROJECT_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
 
 /**
  * Resolve the storage root directory.
- * Uses CHAT_STORAGE_DIR env var if set, otherwise ./chats relative to cwd.
+ * Priority: CHAT_STORAGE_DIR > CLAUDE_PROJECT_DIR/chats > cwd/chats
+ *
+ * CLAUDE_PROJECT_DIR is set by Claude Code in the hook process environment,
+ * ensuring hooks find the correct storage root regardless of working directory.
  */
 export function resolveStorageRoot(): string {
-  return process.env.CHAT_STORAGE_DIR || path.join(process.cwd(), "chats");
+  if (process.env.CHAT_STORAGE_DIR) {
+    return process.env.CHAT_STORAGE_DIR;
+  }
+  if (process.env.CLAUDE_PROJECT_DIR) {
+    return path.join(process.env.CLAUDE_PROJECT_DIR, "chats");
+  }
+  return path.join(process.cwd(), "chats");
 }
 
 /**
