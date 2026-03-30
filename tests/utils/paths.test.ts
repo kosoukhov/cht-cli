@@ -1,3 +1,4 @@
+import path from "node:path";
 import { describe, it, expect } from "vitest";
 import {
   validateProjectName,
@@ -109,6 +110,49 @@ describe("resolveStorageRoot", () => {
       if (original !== undefined) {
         process.env.CHAT_STORAGE_DIR = original;
       }
+    }
+  });
+
+  it("returns CLAUDE_PROJECT_DIR/chats when CLAUDE_PROJECT_DIR is set and CHAT_STORAGE_DIR is not", () => {
+    const origStorage = process.env.CHAT_STORAGE_DIR;
+    const origProject = process.env.CLAUDE_PROJECT_DIR;
+    delete process.env.CHAT_STORAGE_DIR;
+    process.env.CLAUDE_PROJECT_DIR = "/projects/my-project";
+    try {
+      expect(resolveStorageRoot()).toBe("/projects/my-project/chats");
+    } finally {
+      if (origStorage !== undefined) process.env.CHAT_STORAGE_DIR = origStorage;
+      else delete process.env.CHAT_STORAGE_DIR;
+      if (origProject !== undefined) process.env.CLAUDE_PROJECT_DIR = origProject;
+      else delete process.env.CLAUDE_PROJECT_DIR;
+    }
+  });
+
+  it("prefers CHAT_STORAGE_DIR over CLAUDE_PROJECT_DIR", () => {
+    const origStorage = process.env.CHAT_STORAGE_DIR;
+    const origProject = process.env.CLAUDE_PROJECT_DIR;
+    process.env.CHAT_STORAGE_DIR = "/custom/override";
+    process.env.CLAUDE_PROJECT_DIR = "/projects/my-project";
+    try {
+      expect(resolveStorageRoot()).toBe("/custom/override");
+    } finally {
+      if (origStorage !== undefined) process.env.CHAT_STORAGE_DIR = origStorage;
+      else delete process.env.CHAT_STORAGE_DIR;
+      if (origProject !== undefined) process.env.CLAUDE_PROJECT_DIR = origProject;
+      else delete process.env.CLAUDE_PROJECT_DIR;
+    }
+  });
+
+  it("falls back to cwd/chats when no env vars are set", () => {
+    const origStorage = process.env.CHAT_STORAGE_DIR;
+    const origProject = process.env.CLAUDE_PROJECT_DIR;
+    delete process.env.CHAT_STORAGE_DIR;
+    delete process.env.CLAUDE_PROJECT_DIR;
+    try {
+      expect(resolveStorageRoot()).toBe(path.join(process.cwd(), "chats"));
+    } finally {
+      if (origStorage !== undefined) process.env.CHAT_STORAGE_DIR = origStorage;
+      if (origProject !== undefined) process.env.CLAUDE_PROJECT_DIR = origProject;
     }
   });
 });
