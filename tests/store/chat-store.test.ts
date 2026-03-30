@@ -470,6 +470,44 @@ describe("chat-store", () => {
     });
   });
 
+  describe("appendMessage concurrency", () => {
+    it("concurrent appendMessage calls never lose messages", async () => {
+      const chatPath = await createChat(tmpDir, "myproject", "Race Test");
+
+      // Launch 10 concurrent writes
+      const writes = Array.from({ length: 10 }, (_, i) =>
+        appendMessage(chatPath, i % 2 === 0 ? "user" : "assistant", `Message ${i}`)
+      );
+      await Promise.all(writes);
+
+      const chat = await readChat(chatPath);
+      expect(chat.messages).toHaveLength(10);
+
+      // Verify all messages are present (order may vary due to concurrency)
+      const contents = chat.messages.map(m => m.content);
+      for (let i = 0; i < 10; i++) {
+        expect(contents).toContain(`Message ${i}`);
+      }
+    });
+
+    it("concurrent writes preserve message content integrity", async () => {
+      const chatPath = await createChat(tmpDir, "myproject", "Integrity Test");
+
+      // Simulate the real-world scenario: user message + assistant message at nearly the same time
+      await Promise.all([
+        appendMessage(chatPath, "user", "What is 2+2?"),
+        appendMessage(chatPath, "assistant", "The answer is 4."),
+      ]);
+
+      const chat = await readChat(chatPath);
+      expect(chat.messages).toHaveLength(2);
+
+      const contents = chat.messages.map(m => m.content);
+      expect(contents).toContain("What is 2+2?");
+      expect(contents).toContain("The answer is 4.");
+    });
+  });
+
   describe("updateFrontmatter with tags", () => {
     it("persists tags array and round-trips correctly", async () => {
       const filePath = await createChat(tmpDir, "myproject", "Tag Roundtrip");
