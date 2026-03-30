@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import matter from "gray-matter";
+import lockfile from "proper-lockfile";
 import { parseChat } from "../markdown/parser.ts";
 import { serializeChat } from "../markdown/serializer.ts";
 import { writeFileAtomic } from "./atomic-write.ts";
@@ -155,13 +156,19 @@ export async function appendMessage(
   role: "user" | "assistant",
   content: string,
 ): Promise<void> {
-  const existing = await readChat(filePath);
-
-  const newMessage: ChatMessage = { role, content };
-  const updatedMessages = [...existing.messages, newMessage];
-
-  const serialized = serializeChat(existing.frontmatter, updatedMessages);
-  await writeFileAtomic(filePath, serialized);
+  const release = await lockfile.lock(filePath, {
+    retries: { retries: 15, factor: 1.2, minTimeout: 50, maxTimeout: 500 },
+    stale: 10000,
+  });
+  try {
+    const existing = await readChat(filePath);
+    const newMessage: ChatMessage = { role, content };
+    const updatedMessages = [...existing.messages, newMessage];
+    const serialized = serializeChat(existing.frontmatter, updatedMessages);
+    await writeFileAtomic(filePath, serialized);
+  } finally {
+    await release();
+  }
 }
 
 /**
