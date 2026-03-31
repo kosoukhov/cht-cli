@@ -19,10 +19,19 @@ export type ChatMessage = {
   content: string;
 };
 
-// Full parsed chat -- frontmatter + messages
+// Compact event marker -- recorded when Claude Code compacts conversation context
+export type CompactMarker = {
+  timestamp: string; // ISO 8601
+  trigger: "auto" | "manual";
+};
+
+// Full parsed chat -- frontmatter + messages + compact markers
 export type ParsedChat = {
   frontmatter: ChatFrontmatter;
   messages: ChatMessage[];
+  compactMarkers: CompactMarker[];
+  /** Internal section ordering for round-trip fidelity. Each entry records whether it is a message or compact marker and its index in the respective array. */
+  _sectionOrder: Array<{ type: "message" | "compact"; index: number }>;
 };
 
 // Project-level config -- stored as _config.yaml in project directory
