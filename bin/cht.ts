@@ -333,6 +333,7 @@ async function main(): Promise<void> {
       }
 
       const messageCount = chat.messages.length;
+      const compactCount = chat.compactMarkers.length;
       const fileSizeBytes = stat.size;
       const estimatedTokens = Math.round(fileSizeBytes / 4);
 
@@ -340,9 +341,12 @@ async function main(): Promise<void> {
       const SIZE_THRESHOLD = 102400; // 100 KB
 
       const isLarge = messageCount >= MESSAGE_THRESHOLD || fileSizeBytes >= SIZE_THRESHOLD;
-      const warning = isLarge
-        ? "Chat is getting large. Run /cht:rollover to continue in a new file with context linked."
-        : null;
+      let warning: string | null = null;
+      if (isLarge && compactCount > 0) {
+        warning = `Chat has been compacted ${compactCount} time(s). Consider /cht:rollover to start fresh with context.`;
+      } else if (isLarge) {
+        warning = "Chat is getting large. Run /cht:rollover to continue in a new file with context linked.";
+      }
 
       // Resolve chain links for rollover navigation (D-08)
       const chainInfo: Record<string, unknown> = {};
@@ -381,6 +385,7 @@ async function main(): Promise<void> {
         title: chat.frontmatter.title,
         project: chat.frontmatter.project,
         message_count: messageCount,
+        compact_count: compactCount,
         file_size_bytes: fileSizeBytes,
         estimated_tokens: estimatedTokens,
         warning,

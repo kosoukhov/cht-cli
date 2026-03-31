@@ -19,6 +19,7 @@ Show statistics and size warning for the active chat.
      File size: {file_size_bytes formatted as KB or MB}
      Est. tokens: ~{estimated_tokens formatted with comma separators}
      ```
+   - If `compact_count` > 0, insert after Messages line: `Compactions: {compact_count}`
    - For file size formatting:
      - Under 1024 bytes: "{n} B"
      - Under 1048576 bytes: "{n/1024, 1 decimal} KB"
