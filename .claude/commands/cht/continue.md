@@ -29,6 +29,7 @@ Resume a previous chat conversation. Loads the full conversation history into co
 6. Once the user selects a chat:
    - Use the Read tool to read the file at the full path from the list output (the `path` field). Read the entire file -- do not truncate.
    - Run: `node --experimental-strip-types bin/cht.ts session-set <selected_chat_path> <project>` to activate session tracking. This ensures hooks start saving new messages to this chat file.
+   - After reading the chat file, check if the frontmatter contains a `continued_in` field. If it does, show a note: "**Note:** This chat was continued in a newer chat. You may want to use /cht:continue to select the newer one, or proceed here if you want the older context."
    - Provide a brief 2-3 sentence summary of the conversation covering: what it was about, what was decided or accomplished, and where it left off.
    - Tell the user: "Chat resumed. New messages will be appended to this conversation. Use /cht:end to stop recording."
 7. If the selected chat has no messages (only frontmatter), say: "This chat has no messages yet. You can start the conversation now."

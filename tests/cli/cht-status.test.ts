@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import matter from "gray-matter";
 
 const execFileAsync = promisify(execFile);
 
@@ -133,5 +134,80 @@ describe("cht status", () => {
     const fileSize = result.file_size_bytes as number;
     const tokens = result.estimated_tokens as number;
     expect(tokens).toBe(Math.round(fileSize / 4));
+  });
+
+  it("status shows chain: null when no links exist", async () => {
+    const createResult = await runCht("create", "general", "No Links Chat");
+    const chatPath = createResult.chat_path as string;
+    await runCht("session-set", chatPath, "general");
+
+    const result = await runCht("status");
+    expect(result.ok).toBe(true);
+    expect(result.chain).toBeNull();
+  });
+
+  it("status shows continued_from when link exists", async () => {
+    // Create old chat
+    const oldResult = await runCht("create", "general", "Old Chat");
+    const oldPath = oldResult.chat_path as string;
+
+    // Create new chat
+    const newResult = await runCht("create", "general", "New Chat");
+    const newPath = newResult.chat_path as string;
+
+    // Add continued_from to new chat's frontmatter
+    const content = await fs.readFile(newPath, "utf-8");
+    const parsed = matter(content);
+    parsed.data.continued_from = oldPath;
+    await fs.writeFile(newPath, matter.stringify(parsed.content, parsed.data), "utf-8");
+
+    // Set session to new chat and run status
+    await runCht("session-set", newPath, "general");
+    const result = await runCht("status");
+    expect(result.ok).toBe(true);
+    const chain = result.chain as { continued_from: { path: string; title: string } };
+    expect(chain.continued_from.path).toBe(oldPath);
+    expect(chain.continued_from.title).toBe("Old Chat");
+  });
+
+  it("status shows continued_in when link exists", async () => {
+    // Create old chat
+    const oldResult = await runCht("create", "general", "First Chat");
+    const oldPath = oldResult.chat_path as string;
+
+    // Create new chat
+    const newResult = await runCht("create", "general", "Second Chat");
+    const newPath = newResult.chat_path as string;
+
+    // Add continued_in to old chat's frontmatter
+    const content = await fs.readFile(oldPath, "utf-8");
+    const parsed = matter(content);
+    parsed.data.continued_in = newPath;
+    await fs.writeFile(oldPath, matter.stringify(parsed.content, parsed.data), "utf-8");
+
+    // Set session to old chat and run status
+    await runCht("session-set", oldPath, "general");
+    const result = await runCht("status");
+    expect(result.ok).toBe(true);
+    const chain = result.chain as { continued_in: { path: string; title: string } };
+    expect(chain.continued_in.path).toBe(newPath);
+    expect(chain.continued_in.title).toBe("Second Chat");
+  });
+
+  it("status handles missing linked file gracefully", async () => {
+    const createResult = await runCht("create", "general", "Orphan Chat");
+    const chatPath = createResult.chat_path as string;
+
+    // Add continued_from pointing to a nonexistent file
+    const content = await fs.readFile(chatPath, "utf-8");
+    const parsed = matter(content);
+    parsed.data.continued_from = "/tmp/nonexistent-chat.md";
+    await fs.writeFile(chatPath, matter.stringify(parsed.content, parsed.data), "utf-8");
+
+    await runCht("session-set", chatPath, "general");
+    const result = await runCht("status");
+    expect(result.ok).toBe(true);
+    const chain = result.chain as { continued_from: { path: string; title: string } };
+    expect(chain.continued_from.title).toBe("(file not found)");
   });
 });

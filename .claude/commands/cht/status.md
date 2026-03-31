@@ -25,4 +25,7 @@ Show statistics and size warning for the active chat.
      - 1048576+ bytes: "{n/1048576, 1 decimal} MB"
    - For token estimate: prefix with `~` and use comma separators
    - If `warning` is non-null, show it on a separate line after a blank line, prefixed with **Warning:**
+   - If `chain` is non-null, show chain links after a blank line:
+     - If `chain.continued_from` exists: show "Continued from: **{title}** (`{path}`)"
+     - If `chain.continued_in` exists: show "Continued in: **{title}** (`{path}`)"
 4. On failure (`ok: false`): Say the error message from the `error` field.

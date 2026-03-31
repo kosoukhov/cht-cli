@@ -344,6 +344,37 @@ async function main(): Promise<void> {
         ? "Chat is getting large. Run /cht:rollover to continue in a new file with context linked."
         : null;
 
+      // Resolve chain links for rollover navigation (D-08)
+      const chainInfo: Record<string, unknown> = {};
+      if (chat.frontmatter.continued_from) {
+        try {
+          const prevChat = await readChat(chat.frontmatter.continued_from);
+          chainInfo.continued_from = {
+            path: chat.frontmatter.continued_from,
+            title: prevChat.frontmatter.title,
+          };
+        } catch {
+          chainInfo.continued_from = {
+            path: chat.frontmatter.continued_from,
+            title: "(file not found)",
+          };
+        }
+      }
+      if (chat.frontmatter.continued_in) {
+        try {
+          const nextChat = await readChat(chat.frontmatter.continued_in);
+          chainInfo.continued_in = {
+            path: chat.frontmatter.continued_in,
+            title: nextChat.frontmatter.title,
+          };
+        } catch {
+          chainInfo.continued_in = {
+            path: chat.frontmatter.continued_in,
+            title: "(file not found)",
+          };
+        }
+      }
+
       output({
         ok: true,
         chat_path: active.chat_path,
@@ -353,6 +384,7 @@ async function main(): Promise<void> {
         file_size_bytes: fileSizeBytes,
         estimated_tokens: estimatedTokens,
         warning,
+        chain: Object.keys(chainInfo).length > 0 ? chainInfo : null,
       });
       break;
     }
