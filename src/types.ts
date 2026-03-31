@@ -8,6 +8,8 @@ export const ChatFrontmatterSchema = z.object({
   model: z.string(),
   system_prompt: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  continued_from: z.string().optional(),
+  continued_in: z.string().optional(),
 });
 export type ChatFrontmatter = z.infer<typeof ChatFrontmatterSchema>;
 
