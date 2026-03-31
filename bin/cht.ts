@@ -357,10 +357,50 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "rollover": {
+      // 1. Verify active session exists
+      const active = await getActiveChat();
+      if (!active) {
+        output({ ok: false, error: "No active chat to roll over. Start one with /cht:new." });
+        process.exit(1);
+        return;
+      }
+
+      // 2. Read old chat to get project, title, and tags
+      const oldChat = await readChat(active.chat_path);
+      const project = oldChat.frontmatter.project;
+      const title = oldChat.frontmatter.title;
+      const tags = oldChat.frontmatter.tags;
+
+      // 3. Create new chat file (inherits title verbatim)
+      const newChatPath = await createChat(storageRoot, project, title);
+
+      // 4. Switch session to new chat FIRST (critical invariant: always have active chat)
+      await setActiveChat({ chat_path: newChatPath, project });
+
+      // 5. Update old chat frontmatter with continued_in link (absolute path)
+      await updateFrontmatter(active.chat_path, { continued_in: newChatPath });
+
+      // 6. Update new chat frontmatter with continued_from link + copy tags
+      await updateFrontmatter(newChatPath, {
+        continued_from: active.chat_path,
+        ...(tags && tags.length > 0 ? { tags } : {}),
+      });
+
+      output({
+        ok: true,
+        old_chat_path: active.chat_path,
+        new_chat_path: newChatPath,
+        project,
+        title,
+      });
+      break;
+    }
+
     default: {
       output({
         ok: false,
-        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects, status`,
+        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects, status, rollover`,
       });
       process.exit(1);
     }
