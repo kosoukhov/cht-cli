@@ -7,6 +7,7 @@ import {
   readChat,
   listChats,
   appendMessage,
+  appendCompactMarker,
   updateFrontmatter,
   deleteChat,
   archiveChat,
@@ -527,6 +528,85 @@ describe("chat-store", () => {
 
       expect(entries).toHaveLength(1);
       expect(entries[0].tags).toEqual(["urgent", "review"]);
+    });
+  });
+
+  describe("appendCompactMarker", () => {
+    it("writes a ## Compact section to the chat file", async () => {
+      const chatPath = await createChat(tmpDir, "myproject", "Compact Test");
+      await appendMessage(chatPath, "user", "Hello");
+      await appendMessage(chatPath, "assistant", "Hi there!");
+
+      await appendCompactMarker(chatPath, "auto");
+
+      const chat = await readChat(chatPath);
+      expect(chat.compactMarkers).toHaveLength(1);
+      expect(chat.compactMarkers[0].trigger).toBe("auto");
+
+      // Verify the raw file contains ## Compact
+      const raw = await fs.readFile(chatPath, "utf-8");
+      expect(raw).toContain("## Compact");
+    });
+
+    it("marker contains correct ISO 8601 timestamp format", async () => {
+      const chatPath = await createChat(tmpDir, "myproject", "Timestamp Test");
+
+      await appendCompactMarker(chatPath, "auto");
+
+      const chat = await readChat(chatPath);
+      expect(chat.compactMarkers).toHaveLength(1);
+      // ISO 8601 format: YYYY-MM-DDTHH:mm:ss.sssZ
+      expect(chat.compactMarkers[0].timestamp).toMatch(
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+      );
+    });
+
+    it("with trigger 'auto' produces correct metadata in file", async () => {
+      const chatPath = await createChat(tmpDir, "myproject", "Auto Test");
+
+      await appendCompactMarker(chatPath, "auto");
+
+      const raw = await fs.readFile(chatPath, "utf-8");
+      expect(raw).toMatch(/\*.*-- auto\*/);
+    });
+
+    it("with trigger 'manual' produces correct metadata in file", async () => {
+      const chatPath = await createChat(tmpDir, "myproject", "Manual Test");
+
+      await appendCompactMarker(chatPath, "manual");
+
+      const raw = await fs.readFile(chatPath, "utf-8");
+      expect(raw).toMatch(/\*.*-- manual\*/);
+    });
+
+    it("preserves existing messages", async () => {
+      const chatPath = await createChat(tmpDir, "myproject", "Preserve Test CM");
+      await appendMessage(chatPath, "user", "First message");
+      await appendMessage(chatPath, "assistant", "First response");
+
+      await appendCompactMarker(chatPath, "manual");
+
+      const chat = await readChat(chatPath);
+      expect(chat.messages).toHaveLength(2);
+      expect(chat.messages[0].content).toBe("First message");
+      expect(chat.messages[1].content).toBe("First response");
+      expect(chat.compactMarkers).toHaveLength(1);
+    });
+
+    it("on a file with existing compact markers adds a new one without removing old", async () => {
+      const chatPath = await createChat(tmpDir, "myproject", "Multi Compact");
+      await appendMessage(chatPath, "user", "Hello");
+
+      await appendCompactMarker(chatPath, "auto");
+      await appendMessage(chatPath, "assistant", "After compact");
+      await appendCompactMarker(chatPath, "manual");
+
+      const chat = await readChat(chatPath);
+      expect(chat.compactMarkers).toHaveLength(2);
+      expect(chat.compactMarkers[0].trigger).toBe("auto");
+      expect(chat.compactMarkers[1].trigger).toBe("manual");
+      // Messages preserved
+      expect(chat.messages).toHaveLength(2);
     });
   });
 });
