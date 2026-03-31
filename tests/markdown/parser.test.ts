@@ -99,3 +99,140 @@ describe("parseMessages", () => {
     expect(result).toHaveLength(0);
   });
 });
+
+describe("compact markers", () => {
+  it("parseChat on file with ## Compact section returns compactMarkers array with 1 entry", () => {
+    const content = readFixture("compact-marker.md");
+    const result = parseChat(content);
+
+    expect(result.compactMarkers).toHaveLength(1);
+  });
+
+  it("compactMarkers[0].timestamp equals '2026-03-31T14:30:00.000Z'", () => {
+    const content = readFixture("compact-marker.md");
+    const result = parseChat(content);
+
+    expect(result.compactMarkers[0].timestamp).toBe("2026-03-31T14:30:00.000Z");
+  });
+
+  it("compactMarkers[0].trigger equals 'auto'", () => {
+    const content = readFixture("compact-marker.md");
+    const result = parseChat(content);
+
+    expect(result.compactMarkers[0].trigger).toBe("auto");
+  });
+
+  it("messages array does NOT contain compact-related content", () => {
+    const content = readFixture("compact-marker.md");
+    const result = parseChat(content);
+
+    // Should have 4 messages: User, Assistant (before compact), User, Assistant (after compact)
+    expect(result.messages).toHaveLength(4);
+    expect(result.messages[0].role).toBe("user");
+    expect(result.messages[0].content).toBe("Hello, how are you?");
+    expect(result.messages[1].role).toBe("assistant");
+    expect(result.messages[1].content).toBe("I'm doing well! How can I help you today?");
+    expect(result.messages[2].role).toBe("user");
+    expect(result.messages[2].content).toBe("Let's continue our conversation.");
+    expect(result.messages[3].role).toBe("assistant");
+    expect(result.messages[3].content).toBe("Of course! What would you like to discuss?");
+
+    // No message should contain compact-related content
+    for (const msg of result.messages) {
+      expect(msg.content).not.toContain("compacted");
+      expect(msg.content).not.toContain("## Compact");
+    }
+  });
+
+  it("parseChat on simple-chat.md (no compact markers) returns compactMarkers: []", () => {
+    const content = readFixture("simple-chat.md");
+    const result = parseChat(content);
+
+    expect(result.compactMarkers).toEqual([]);
+  });
+
+  it("parseChat with multiple compact markers returns correct count and timestamps", () => {
+    const content = `---
+title: Multi Compact
+project: general
+created: "2026-03-31T10:00:00.000Z"
+model: claude-sonnet-4-20250514
+---
+
+## User
+
+First message
+
+## Assistant
+
+First reply
+
+## Compact
+
+*2026-03-31T12:00:00.000Z -- auto*
+
+Context was compacted. Messages above this marker were summarized by Claude Code.
+
+## User
+
+Second message
+
+## Compact
+
+*2026-03-31T16:00:00.000Z -- manual*
+
+Context was compacted. Messages above this marker were summarized by Claude Code.
+
+## User
+
+Third message
+
+## Assistant
+
+Third reply
+`;
+    const result = parseChat(content);
+
+    expect(result.compactMarkers).toHaveLength(2);
+    expect(result.compactMarkers[0].timestamp).toBe("2026-03-31T12:00:00.000Z");
+    expect(result.compactMarkers[0].trigger).toBe("auto");
+    expect(result.compactMarkers[1].timestamp).toBe("2026-03-31T16:00:00.000Z");
+    expect(result.compactMarkers[1].trigger).toBe("manual");
+    expect(result.messages).toHaveLength(5);
+  });
+
+  it("compact marker inside a code block is NOT treated as a section boundary", () => {
+    const content = `---
+title: Code Block Compact
+project: general
+created: "2026-03-31T10:00:00.000Z"
+model: claude-sonnet-4-20250514
+---
+
+## User
+
+Show me the format
+
+## Assistant
+
+Here is the format:
+
+\`\`\`markdown
+## Compact
+
+*2026-03-31T14:30:00.000Z -- auto*
+
+Context was compacted. Messages above this marker were summarized by Claude Code.
+\`\`\`
+
+That's the compact marker format.
+`;
+    const result = parseChat(content);
+
+    // The ## Compact inside the code block must NOT be recognized as a compact marker
+    expect(result.compactMarkers).toEqual([]);
+    expect(result.messages).toHaveLength(2);
+    expect(result.messages[1].content).toContain("## Compact");
+    expect(result.messages[1].content).toContain("That's the compact marker format.");
+  });
+});
