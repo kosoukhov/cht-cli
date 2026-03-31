@@ -22,6 +22,17 @@
         ]
       }
     ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node --experimental-strip-types \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/save-compact-marker.ts",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [

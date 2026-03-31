@@ -17,6 +17,7 @@ import type {
   ParsedChat,
   ChatListEntry,
   ChatMessage,
+  CompactMarker,
 } from "../types.ts";
 
 /**
@@ -173,6 +174,43 @@ export async function appendMessage(
       existing.frontmatter,
       updatedMessages,
       existing.compactMarkers,
+      updatedSectionOrder,
+    );
+    await writeFileAtomic(filePath, serialized);
+  } finally {
+    await release();
+  }
+}
+
+/**
+ * Append a compact event marker to an existing chat file.
+ * Follows the same read-lock-rewrite-atomic pattern as appendMessage.
+ * Used by the PostCompact hook to record compaction events.
+ */
+export async function appendCompactMarker(
+  filePath: string,
+  trigger: "auto" | "manual",
+): Promise<void> {
+  const release = await lockfile.lock(filePath, {
+    retries: { retries: 15, factor: 1.2, minTimeout: 50, maxTimeout: 500 },
+    stale: 10000,
+  });
+  try {
+    const existing = await readChat(filePath);
+    const marker: CompactMarker = {
+      timestamp: new Date().toISOString(),
+      trigger,
+    };
+    const updatedMarkers = [...existing.compactMarkers, marker];
+    // Append new compact marker to section order, preserving message positions
+    const updatedSectionOrder = [
+      ...existing._sectionOrder,
+      { type: "compact" as const, index: updatedMarkers.length - 1 },
+    ];
+    const serialized = serializeChat(
+      existing.frontmatter,
+      existing.messages,
+      updatedMarkers,
       updatedSectionOrder,
     );
     await writeFileAtomic(filePath, serialized);
