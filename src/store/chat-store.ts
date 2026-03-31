@@ -164,7 +164,17 @@ export async function appendMessage(
     const existing = await readChat(filePath);
     const newMessage: ChatMessage = { role, content };
     const updatedMessages = [...existing.messages, newMessage];
-    const serialized = serializeChat(existing.frontmatter, updatedMessages);
+    // Append new message to section order, preserving compact marker positions
+    const updatedSectionOrder = [
+      ...existing._sectionOrder,
+      { type: "message" as const, index: updatedMessages.length - 1 },
+    ];
+    const serialized = serializeChat(
+      existing.frontmatter,
+      updatedMessages,
+      existing.compactMarkers,
+      updatedSectionOrder,
+    );
     await writeFileAtomic(filePath, serialized);
   } finally {
     await release();
@@ -183,7 +193,12 @@ export async function updateFrontmatter(
 ): Promise<void> {
   const existing = await readChat(filePath);
   const updatedFrontmatter = { ...existing.frontmatter, ...updates };
-  const serialized = serializeChat(updatedFrontmatter, existing.messages);
+  const serialized = serializeChat(
+    updatedFrontmatter,
+    existing.messages,
+    existing.compactMarkers,
+    existing._sectionOrder,
+  );
   await writeFileAtomic(filePath, serialized);
 }
 
