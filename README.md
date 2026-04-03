@@ -1,7 +1,12 @@
-# /cht -- Chat Persistence for Claude Code
+# /cht — Chat Persistence for Claude Code
 
-A set of slash commands for saving and managing conversation history in Claude Code.
-Chats are stored as markdown files in `chats/`, grouped by project.
+[![npm version](https://img.shields.io/npm/v/@kosoukhov/cht-cli.svg)](https://www.npmjs.com/package/@kosoukhov/cht-cli)
+[![license](https://img.shields.io/npm/l/@kosoukhov/cht-cli.svg)](LICENSE)
+[![node](https://img.shields.io/node/v/@kosoukhov/cht-cli.svg)](package.json)
+
+> Save, search, and continue Claude Code conversations as local markdown files.
+
+13 slash commands for managing conversation history in Claude Code. Every message is crash-proof saved to a markdown file, organized by project, readable offline in any editor.
 
 ## Installation
 
