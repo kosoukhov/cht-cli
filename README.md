@@ -8,13 +8,13 @@ Chats are stored as markdown files in `chats/`, grouped by project.
 Requirements: Node.js 22+, Claude Code CLI.
 
 ```bash
-npm install -g cht-cli
+npm install -g @kosoukhov/cht-cli
 ```
 
 Or use without installing:
 
 ```bash
-npx cht-cli
+npx @kosoukhov/cht-cli
 ```
 
 Open Claude Code in your project directory:
