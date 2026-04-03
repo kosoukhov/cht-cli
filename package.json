@@ -1,5 +1,5 @@
 {
-  "name": "cht-cli",
+  "name": "@kosoukhov/cht-cli",
   "version": "1.0.0",
   "type": "module",
   "description": "Chat persistence for Claude Code — save, search, and continue conversations as local markdown files",
