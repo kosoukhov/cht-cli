@@ -1,7 +1,26 @@
 {
-  "name": "chat-cli",
+  "name": "cht-cli",
+  "version": "1.0.0",
   "type": "module",
-  "private": true,
+  "description": "Chat persistence for Claude Code — save, search, and continue conversations as local markdown files",
+  "license": "MIT",
+  "author": "Vadim Kosoukhov",
+  "keywords": ["claude", "claude-code", "chat", "persistence", "markdown", "conversation", "history"],
+  "bin": {
+    "cht": "bin/cht.ts"
+  },
+  "files": ["bin/", "src/", ".claude/commands/cht/", ".claude/hooks/"],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "homepage": "",
+  "bugs": {
+    "url": ""
+  },
   "scripts": {
     "check": "tsc --noEmit",
     "test": "vitest run",
