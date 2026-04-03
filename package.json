@@ -9,17 +9,17 @@
   "bin": {
     "cht": "bin/cht.ts"
   },
-  "files": ["bin/", "src/", ".claude/commands/cht/", ".claude/hooks/"],
+  "files": ["bin/cht.ts", "src/", ".claude/commands/cht/", ".claude/hooks/"],
   "engines": {
     "node": ">=22.0.0"
   },
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/kosoukhov/cht-cli.git"
   },
-  "homepage": "",
+  "homepage": "https://github.com/kosoukhov/cht-cli#readme",
   "bugs": {
-    "url": ""
+    "url": "https://github.com/kosoukhov/cht-cli/issues"
   },
   "scripts": {
     "check": "tsc --noEmit",

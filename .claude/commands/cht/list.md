@@ -7,18 +7,24 @@ argument-hint: "[project] [--recent N] [--tag TAG] [--archived]"
 List chat conversations with optional filtering.
 
 **Arguments:**
-- `project` (optional, default: "general") -- the project to list chats from
+- `project` (optional) -- the project to list chats from
 - `--recent N` (optional) -- show only the N most recent chats
 - `--tag TAG` (optional) -- filter chats by tag
 - `--archived` (optional) -- list archived chats instead of active ones
 
 **Steps:**
 
-1. Run: `node --experimental-strip-types bin/cht.ts list $ARGUMENTS`
-2. Parse the JSON output.
-3. On success (`ok: true`):
-   - If `chats` array is empty, say: "No chats found. Start a new chat with /cht:new [project]."
-   - Otherwise, show total count at top: "N chat(s):" or "N archived chat(s):" if `--archived` was used.
+1. **Resolve project.** If no project argument was provided in `$ARGUMENTS`:
+   a. Run: `node --experimental-strip-types bin/cht.ts projects`
+   b. Parse the JSON output. The `projects` array lists available project names.
+   c. If `projects` is empty: say "No chats found. Start a new chat with /cht:new [project]." and stop.
+   d. If exactly one project: use that project name automatically.
+   e. If multiple projects: use AskUserQuestion to let the user pick a project. Options are the project names from the array.
+2. Run: `node --experimental-strip-types bin/cht.ts list {resolved_project} {remaining_flags_from_ARGUMENTS}`
+3. Parse the JSON output.
+4. On success (`ok: true`):
+   - If `chats` array is empty, say: "No chats found in project {project}. Start a new chat with /cht:new {project}."
+   - Otherwise, show total count at top: "N chat(s) in {project}:" or "N archived chat(s) in {project}:" if `--archived` was used.
    - Format each chat as:
      ```
      {number}. {title} [#tag1 #tag2]  ({relative_date})
@@ -31,4 +37,4 @@ List chat conversations with optional filtering.
      - "YYYY-MM-DD" for over 30 days
    - Only show the `[#tag1 #tag2]` part if the chat has tags (non-empty tags array). Each tag prefixed with `#`, separated by single space inside brackets.
    - Only show the preview line if preview is non-empty.
-4. On failure (`ok: false`): Say "Could not list chats: {error}."
+5. On failure (`ok: false`): Say "Could not list chats: {error}."
