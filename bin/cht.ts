@@ -28,6 +28,7 @@ import {
   PostCompactInput,
   SessionEndInput,
 } from "../src/hooks/stdin.ts";
+import { registerHooks, cleanProjectHooks } from "../src/hooks/setup.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ChatListEntry } from "../src/types.ts";
@@ -527,6 +528,19 @@ async function main(): Promise<void> {
       } catch (err) {
         await hookErrorHandler("hook-session-clear", err);
       }
+      break;
+    }
+
+    case "setup": {
+      const result = await registerHooks();
+      const cleanup = await cleanProjectHooks();
+      output({
+        ok: true,
+        hooks_added: result.added,
+        hooks_skipped: result.skipped,
+        files_deleted: cleanup.deleted,
+        settings_cleaned: cleanup.cleaned,
+      });
       break;
     }
 
