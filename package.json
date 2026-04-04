@@ -9,7 +9,7 @@
   "bin": {
     "cht": "bin/cht.ts"
   },
-  "files": ["bin/cht.ts", "src/", ".claude/commands/cht/", ".claude/hooks/"],
+  "files": ["bin/cht.ts", "src/", ".claude/commands/cht/"],
   "engines": {
     "node": ">=22.0.0"
   },
