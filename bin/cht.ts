@@ -8,6 +8,7 @@ import {
   restoreChat,
   listArchivedChats,
   appendMessage,
+  appendCompactMarker,
   updateFrontmatter,
 } from "../src/store/chat-store.ts";
 import { searchChats } from "../src/search/search.ts";
@@ -20,7 +21,15 @@ import {
   clearIfMatches,
 } from "../src/session/state.ts";
 import { normalizeTag } from "../src/tags/normalize.ts";
+import {
+  readStdinJson,
+  UserPromptInput,
+  StopInput,
+  PostCompactInput,
+  SessionEndInput,
+} from "../src/hooks/stdin.ts";
 import fs from "node:fs/promises";
+import path from "node:path";
 import type { ChatListEntry } from "../src/types.ts";
 import type { SearchResult } from "../src/search/search.ts";
 
@@ -65,6 +74,18 @@ function serializeSearchResult(result: SearchResult) {
 
 function output(data: Record<string, unknown>): void {
   process.stdout.write(JSON.stringify(data) + "\n");
+}
+
+async function hookErrorHandler(hookName: string, err: unknown): Promise<never> {
+  try {
+    const logPath = path.join(resolveStorageRoot(), ".hook-errors.log");
+    const message = err instanceof Error ? err.message : String(err);
+    const entry = `[${new Date().toISOString()}] ${hookName}: ${message}\n`;
+    await fs.appendFile(logPath, entry);
+  } catch {
+    // If even logging fails, silently give up
+  }
+  process.exit(1);
 }
 
 async function main(): Promise<void> {
@@ -435,10 +456,84 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "hook-save-user": {
+      try {
+        const input = await readStdinJson(UserPromptInput);
+        const active = await getActiveChat();
+        if (!active) {
+          process.exit(0);
+        }
+        const content = input.prompt;
+        if (!content || content.trim() === "") {
+          process.exit(0);
+        }
+        const chat = await readChat(active.chat_path);
+        const lastMsg = chat.messages[chat.messages.length - 1];
+        if (lastMsg && lastMsg.role === "user" && lastMsg.content === content) {
+          process.exit(0);
+        }
+        await appendMessage(active.chat_path, "user", content);
+        process.exit(0);
+      } catch (err) {
+        await hookErrorHandler("hook-save-user", err);
+      }
+      break;
+    }
+
+    case "hook-save-assistant": {
+      try {
+        const input = await readStdinJson(StopInput);
+        const content = input.last_assistant_message;
+        if (!content || content.trim() === "") {
+          process.exit(0);
+        }
+        const active = await getActiveChat();
+        if (!active) {
+          process.exit(0);
+        }
+        const chat = await readChat(active.chat_path);
+        const lastMsg = chat.messages[chat.messages.length - 1];
+        if (lastMsg && lastMsg.role === "assistant" && lastMsg.content === content) {
+          process.exit(0);
+        }
+        await appendMessage(active.chat_path, "assistant", content);
+        process.exit(0);
+      } catch (err) {
+        await hookErrorHandler("hook-save-assistant", err);
+      }
+      break;
+    }
+
+    case "hook-save-compact": {
+      try {
+        const input = await readStdinJson(PostCompactInput);
+        const active = await getActiveChat();
+        if (!active) {
+          process.exit(0);
+        }
+        await appendCompactMarker(active.chat_path, input.trigger);
+        process.exit(0);
+      } catch (err) {
+        await hookErrorHandler("hook-save-compact", err);
+      }
+      break;
+    }
+
+    case "hook-session-clear": {
+      try {
+        await readStdinJson(SessionEndInput);
+        await clearActiveChat();
+        process.exit(0);
+      } catch (err) {
+        await hookErrorHandler("hook-session-clear", err);
+      }
+      break;
+    }
+
     default: {
       output({
         ok: false,
-        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects, status, rollover`,
+        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects, status, rollover, hook-save-user, hook-save-assistant, hook-save-compact, hook-session-clear, setup`,
       });
       process.exit(1);
     }
