@@ -3,14 +3,20 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const INCLUDE_PATH = path.join(process.cwd(), ".claude/commands/cht/include.md");
+const INCLUDE_PATH = path.join(process.cwd(), "skills/cht-include/SKILL.md");
 
-describe("cht/include.md skill", () => {
+describe("/cht-include SKILL.md", () => {
   it("file exists", () => {
     expect(fs.existsSync(INCLUDE_PATH)).toBe(true);
   });
 
   describe("frontmatter", () => {
+    it("frontmatter.name equals cht-include", () => {
+      const raw = fs.readFileSync(INCLUDE_PATH, "utf-8");
+      const { data } = matter(raw);
+      expect(data.name).toBe("cht-include");
+    });
+
     it("has description containing 'context' or 'include'", () => {
       const raw = fs.readFileSync(INCLUDE_PATH, "utf-8");
       const { data } = matter(raw);
@@ -21,22 +27,17 @@ describe("cht/include.md skill", () => {
     it("allowed-tools contains Read", () => {
       const raw = fs.readFileSync(INCLUDE_PATH, "utf-8");
       const { data } = matter(raw);
-      const tools = data["allowed-tools"] as string;
-      expect(tools).toContain("Read");
+      const tools = data["allowed-tools"];
+      const toolStr = Array.isArray(tools) ? tools.join(" ") : String(tools);
+      expect(toolStr).toContain("Read");
     });
 
-    it("allowed-tools contains Bash(node --experimental-strip-types bin/cht.ts *)", () => {
+    it("allowed-tools contains Bash(cht *)", () => {
       const raw = fs.readFileSync(INCLUDE_PATH, "utf-8");
       const { data } = matter(raw);
-      const tools = data["allowed-tools"] as string;
-      expect(tools).toContain("Bash(node --experimental-strip-types bin/cht.ts *)");
-    });
-
-    it("allowed-tools contains Bash(wc", () => {
-      const raw = fs.readFileSync(INCLUDE_PATH, "utf-8");
-      const { data } = matter(raw);
-      const tools = data["allowed-tools"] as string;
-      expect(tools).toContain("Bash(wc");
+      const tools = data["allowed-tools"];
+      const toolStr = Array.isArray(tools) ? tools.join(" ") : String(tools);
+      expect(toolStr).toContain("Bash(cht *)");
     });
   });
 
@@ -45,12 +46,6 @@ describe("cht/include.md skill", () => {
       const raw = fs.readFileSync(INCLUDE_PATH, "utf-8");
       const { content } = matter(raw);
       expect(content).toContain("500");
-    });
-
-    it("contains 'wc -l' line counting command", () => {
-      const raw = fs.readFileSync(INCLUDE_PATH, "utf-8");
-      const { content } = matter(raw);
-      expect(content).toContain("wc -l");
     });
 
     it("contains 'summarize' instruction", () => {
@@ -67,8 +62,8 @@ describe("cht/include.md skill", () => {
       for (const line of lines) {
         expect(line.toLowerCase()).toContain("not");
       }
-      // Must not appear as a backtick command like `session-set <path>`
-      expect(content).not.toMatch(/`node\b.*session-set/);
+      // Must not appear as a backtick command like `cht session-set <path>`
+      expect(content).not.toMatch(/`cht\b.*session-set/);
     });
 
     it("contains 'Read' tool instruction", () => {
@@ -89,6 +84,12 @@ describe("cht/include.md skill", () => {
       expect(
         content.includes("No chats found") || content.includes("no messages"),
       ).toBe(true);
+    });
+
+    it("body does NOT contain old CLI invocation", () => {
+      const raw = fs.readFileSync(INCLUDE_PATH, "utf-8");
+      const { content } = matter(raw);
+      expect(content).not.toContain("node --experimental-strip-types");
     });
   });
 });

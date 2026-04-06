@@ -5,15 +5,19 @@ import path from "node:path";
 
 const CONTINUE_MD = path.join(
   process.cwd(),
-  ".claude/commands/cht/continue.md",
+  "skills/cht-continue/SKILL.md",
 );
 
-describe("/cht:continue SKILL.md", () => {
+describe("/cht-continue SKILL.md", () => {
   const raw = fs.readFileSync(CONTINUE_MD, "utf-8");
   const { data: frontmatter, content: body } = matter(raw);
 
   it("file exists", () => {
     expect(fs.existsSync(CONTINUE_MD)).toBe(true);
+  });
+
+  it("frontmatter.name equals cht-continue", () => {
+    expect(frontmatter.name).toBe("cht-continue");
   });
 
   it("frontmatter contains description field", () => {
@@ -22,20 +26,15 @@ describe("/cht:continue SKILL.md", () => {
   });
 
   it("allowed-tools contains Read (for loading chat file)", () => {
-    const tools = frontmatter["allowed-tools"] as string;
-    expect(tools).toContain("Read");
+    const tools = frontmatter["allowed-tools"];
+    const toolStr = Array.isArray(tools) ? tools.join(" ") : String(tools);
+    expect(toolStr).toContain("Read");
   });
 
-  it("allowed-tools contains Bash(node --experimental-strip-types bin/cht.ts *)", () => {
-    const tools = frontmatter["allowed-tools"] as string;
-    expect(tools).toContain(
-      "Bash(node --experimental-strip-types bin/cht.ts *)",
-    );
-  });
-
-  it("allowed-tools contains Bash(wc (for line counting)", () => {
-    const tools = frontmatter["allowed-tools"] as string;
-    expect(tools).toContain("Bash(wc");
+  it("allowed-tools contains Bash(cht *)", () => {
+    const tools = frontmatter["allowed-tools"];
+    const toolStr = Array.isArray(tools) ? tools.join(" ") : String(tools);
+    expect(toolStr).toContain("Bash(cht *)");
   });
 
   it("body contains session-set (activates hooks)", () => {
@@ -57,5 +56,9 @@ describe("/cht:continue SKILL.md", () => {
   it("body contains empty-state handling", () => {
     const lower = body.toLowerCase();
     expect(lower).toMatch(/no chats found|no chats/);
+  });
+
+  it("body does NOT contain old CLI invocation", () => {
+    expect(body).not.toContain("node --experimental-strip-types");
   });
 });
