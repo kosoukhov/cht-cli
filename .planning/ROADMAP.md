@@ -6,7 +6,7 @@
 - [x] **v1.1 UX & Management** -- Phases 4-7 ([archived](milestones/v1.1-ROADMAP.md), shipped 2026-03-24)
 - [x] **v2.0 Skills Architecture Pivot** -- Phases 8-12 ([archived](milestones/v2.0-ROADMAP.md), shipped 2026-03-28)
 - [x] **v2.1 Reliability & Context Management** -- Phases 13-16 ([archived](milestones/v2.1-ROADMAP.md), shipped 2026-03-31)
-- [ ] **v2.2 Skills Format Migration** -- Phases 17-20 (in progress)
+- [ ] **v2.2 Skills Format Migration** -- Phases 17-21 (in progress)
 
 ## Phases
 
@@ -56,8 +56,9 @@
 
 - [x] **Phase 17: Hook Subcommands** -- CLI hook commands replacing TypeScript hook scripts (completed 2026-04-04)
 - [x] **Phase 18: SKILL.md Migration** -- 13 skills converted to new format with updated syntax (completed 2026-04-06)
-- [ ] **Phase 19: Setup & Distribution** -- Install, migrate, and validate tooling
+- [x] **Phase 19: Setup & Distribution** -- Merged into Phase 21
 - [ ] **Phase 20: Documentation & Publish** -- README, migration guide, npm publish
+
 
 ## Phase Details
 
@@ -89,20 +90,13 @@ Plans:
 - [x] 18-01-PLAN.md -- Create 13 skills/cht-*/SKILL.md files + update and create all 13 command tests
 - [x] 18-02-PLAN.md -- Cross-reference updates (CLI, tests, README, package.json), delete old commands, human verify
 
-### Phase 19: Setup & Distribution
-**Goal**: Users can install and validate the entire system with a single `cht setup` command, including clean migration from v2.1
-**Depends on**: Phase 18
-**Requirements**: SETUP-01, SETUP-02, SETUP-03, SETUP-04
-**Success Criteria** (what must be TRUE):
-  1. Running `cht setup` copies all 13 SKILL.md files to `~/.claude/skills/cht-*/` and registers hooks in `~/.claude/settings.json`
-  2. Running `cht migrate` detects old `.claude/commands/cht/` format, removes it, and confirms cleanup
-  3. Running `cht doctor` reports green status when skills are present, hooks registered, CLI on PATH, and storage accessible -- and reports specific failures otherwise
-  4. Running `cht setup` a second time completes without errors and without duplicating any entries
-**Plans**: TBD
+### Phase 19: Setup & Distribution (Merged into Phase 21)
+**Goal**: Absorbed by Phase 21 per D-12. All SETUP-01 through SETUP-04 requirements are delivered in Phase 21.
+**Status**: Merged
 
 ### Phase 20: Documentation & Publish
 **Goal**: New and upgrading users have clear instructions to install, use, and migrate to the new skills format
-**Depends on**: Phase 19
+**Depends on**: Phase 21
 **Requirements**: DOC-01, DOC-02
 **Success Criteria** (what must be TRUE):
   1. README shows `/cht-command` syntax throughout, with updated installation instructions referencing `cht setup`
@@ -110,10 +104,25 @@ Plans:
   3. End-to-end validation passes: fresh `npm install -g @kosoukhov/cht-cli && cht setup` followed by `/cht-new` in a random project directory creates a chat with message persistence
 **Plans**: TBD
 
+### Phase 21: Global Skill Installation — cht setup + build pipeline
+**Goal**: Fix npm global installation so `npm install -g @kosoukhov/cht-cli && cht setup` works end-to-end: binary executes via tsup build pipeline, skills are copied to `~/.claude/skills/`, hooks registered, with doctor validation and old format migration
+**Depends on**: Phase 18
+**Requirements**: SETUP-01, SETUP-02, SETUP-03, SETUP-04
+**Success Criteria** (what must be TRUE):
+  1. Running `cht setup` copies all 13 SKILL.md files to `~/.claude/skills/cht-*/` and registers hooks in `~/.claude/settings.json`
+  2. Running `cht migrate` detects old `.claude/commands/cht/` format, removes it, and confirms cleanup
+  3. Running `cht doctor` reports green status when skills are present, hooks registered, CLI on PATH, and storage accessible -- and reports specific failures otherwise
+  4. Running `cht setup` a second time completes without errors and without duplicating any entries
+**Plans**: 3 plans
+Plans:
+- [ ] 21-01-PLAN.md -- tsup build pipeline: config, package.json updates, shebang fix
+- [ ] 21-02-PLAN.md -- Setup skill copy, doctor validation, migrate old format + tests
+- [ ] 21-03-PLAN.md -- Integration verification: npm pack, built binary, human sign-off
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 17 -> 18 -> 19 -> 20
+Phases execute in numeric order: 17 -> 18 -> 21 -> 20
 
 | Phase | Milestone | Plans | Status | Completed |
 |-------|-----------|-------|--------|-----------|
@@ -135,5 +144,6 @@ Phases execute in numeric order: 17 -> 18 -> 19 -> 20
 | 16. Compact Integration | v2.1 | 2/2 | Shipped | 2026-03-31 |
 | 17. Hook Subcommands | v2.2 | 2/2 | Complete    | 2026-04-04 |
 | 18. SKILL.md Migration | v2.2 | 2/2 | Complete    | 2026-04-06 |
-| 19. Setup & Distribution | v2.2 | 0/TBD | Not started | - |
+| 19. Setup & Distribution | v2.2 | - | Merged into Phase 21 | - |
 | 20. Documentation & Publish | v2.2 | 0/TBD | Not started | - |
+| 21. Global Skill Installation | v2.2 | 0/3 | Planned | - |
