@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { registerHooks, cleanProjectHooks } from "../../src/hooks/setup.ts";
+import { registerHooks, cleanProjectHooks, copySkills, resolvePackageRoot } from "../../src/hooks/setup.ts";
 
 describe("registerHooks", () => {
   let tmpDir: string;
@@ -167,5 +167,100 @@ describe("cleanProjectHooks", () => {
 
     expect(result.deleted).toHaveLength(0);
     expect(result.cleaned).toHaveLength(0);
+  });
+});
+
+describe("resolvePackageRoot", () => {
+  it("returns parent directory of given dirname", () => {
+    expect(resolvePackageRoot("/foo/bar/dist")).toBe("/foo/bar");
+    expect(resolvePackageRoot("/foo/bar/bin")).toBe("/foo/bar");
+  });
+});
+
+describe("copySkills", () => {
+  let tmpSource: string;
+  let tmpTarget: string;
+
+  beforeEach(async () => {
+    tmpSource = await fs.mkdtemp(path.join(os.tmpdir(), "cht-copy-src-"));
+    tmpTarget = await fs.mkdtemp(path.join(os.tmpdir(), "cht-copy-dst-"));
+
+    // Create fake skill directories in tmpSource/.claude/skills/
+    const skillsDir = path.join(tmpSource, ".claude", "skills");
+    for (const name of ["cht-new", "cht-search", "cht-list"]) {
+      await fs.mkdir(path.join(skillsDir, name), { recursive: true });
+      await fs.writeFile(path.join(skillsDir, name, "SKILL.md"), `# ${name}`);
+    }
+    // Create a non-cht directory (should be ignored)
+    await fs.mkdir(path.join(skillsDir, "gsd-something"), { recursive: true });
+    await fs.writeFile(path.join(skillsDir, "gsd-something", "SKILL.md"), "# gsd");
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpSource, { recursive: true, force: true });
+    await fs.rm(tmpTarget, { recursive: true, force: true });
+  });
+
+  // metaDirname simulates dist/ or bin/ -- one level below package root
+  function getMetaDirname() {
+    return path.join(tmpSource, "dist");
+  }
+
+  it("copies all cht-* directories to target", async () => {
+    const metaDirname = getMetaDirname();
+    await fs.mkdir(metaDirname, { recursive: true });
+    const result = await copySkills(metaDirname, tmpTarget);
+
+    expect(result.copied).toHaveLength(3);
+    expect(result.copied).toContain("cht-new");
+    expect(result.copied).toContain("cht-search");
+    expect(result.copied).toContain("cht-list");
+    expect(result.errors).toHaveLength(0);
+
+    // Verify files exist at target
+    const content = await fs.readFile(path.join(tmpTarget, "cht-new", "SKILL.md"), "utf-8");
+    expect(content).toBe("# cht-new");
+  });
+
+  it("does not copy non-cht directories", async () => {
+    const metaDirname = getMetaDirname();
+    await fs.mkdir(metaDirname, { recursive: true });
+    const result = await copySkills(metaDirname, tmpTarget);
+
+    expect(result.copied).not.toContain("gsd-something");
+    await expect(fs.access(path.join(tmpTarget, "gsd-something"))).rejects.toThrow();
+  });
+
+  it("overwrites existing files on second run (idempotency)", async () => {
+    const metaDirname = getMetaDirname();
+    await fs.mkdir(metaDirname, { recursive: true });
+
+    // First run
+    await copySkills(metaDirname, tmpTarget);
+
+    // Modify source
+    await fs.writeFile(
+      path.join(tmpSource, ".claude", "skills", "cht-new", "SKILL.md"),
+      "# cht-new v2"
+    );
+
+    // Second run
+    const result = await copySkills(metaDirname, tmpTarget);
+    expect(result.copied).toHaveLength(3);
+    expect(result.errors).toHaveLength(0);
+
+    // Verify overwrite happened
+    const content = await fs.readFile(path.join(tmpTarget, "cht-new", "SKILL.md"), "utf-8");
+    expect(content).toBe("# cht-new v2");
+  });
+
+  it("returns error when source directory does not exist", async () => {
+    const metaDirname = path.join(tmpSource, "nonexistent");
+    await fs.mkdir(metaDirname, { recursive: true });
+    const result = await copySkills(metaDirname, tmpTarget);
+
+    expect(result.copied).toHaveLength(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain("Skills source not found");
   });
 });
