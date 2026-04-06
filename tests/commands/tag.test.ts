@@ -3,8 +3,8 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const TAG_MD = path.join(process.cwd(), "skills/cht-tag/SKILL.md");
-const LIST_MD = path.join(process.cwd(), "skills/cht-list/SKILL.md");
+const TAG_MD = path.join(process.cwd(), ".claude/skills/cht-tag/SKILL.md");
+const LIST_MD = path.join(process.cwd(), ".claude/skills/cht-list/SKILL.md");
 
 describe("/cht-tag SKILL.md", () => {
   const raw = fs.readFileSync(TAG_MD, "utf-8");

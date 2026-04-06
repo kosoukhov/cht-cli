@@ -84,8 +84,10 @@ Plans:
   2. Invoking `/cht-new`, `/cht-search`, `/cht-continue` (and all other commands) triggers the correct behavior via the `cht` CLI binary on PATH
   3. All cross-references between skills use `/cht-command` hyphen syntax -- zero occurrences of `/cht:command` remain
   4. Context-relevant skills (e.g., `/cht-search`) include description text that enables auto-invocation when users ask related questions
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 2 plans
+Plans:
+- [ ] 18-01-PLAN.md -- Create 13 skills/cht-*/SKILL.md files + update and create all 13 command tests
+- [ ] 18-02-PLAN.md -- Cross-reference updates (CLI, tests, README, package.json), delete old commands, human verify
 
 ### Phase 19: Setup & Distribution
 **Goal**: Users can install and validate the entire system with a single `cht setup` command, including clean migration from v2.1
@@ -132,6 +134,6 @@ Phases execute in numeric order: 17 -> 18 -> 19 -> 20
 | 15. Chat Rollover | v2.1 | 2/2 | Shipped | 2026-03-31 |
 | 16. Compact Integration | v2.1 | 2/2 | Shipped | 2026-03-31 |
 | 17. Hook Subcommands | v2.2 | 2/2 | Complete    | 2026-04-04 |
-| 18. SKILL.md Migration | v2.2 | 0/TBD | Not started | - |
+| 18. SKILL.md Migration | v2.2 | 0/2 | Not started | - |
 | 19. Setup & Distribution | v2.2 | 0/TBD | Not started | - |
 | 20. Documentation & Publish | v2.2 | 0/TBD | Not started | - |

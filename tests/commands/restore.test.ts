@@ -5,7 +5,7 @@ import path from "node:path";
 
 const RESTORE_MD = path.join(
   process.cwd(),
-  "skills/cht-restore/SKILL.md",
+  ".claude/skills/cht-restore/SKILL.md",
 );
 
 describe("/cht-restore SKILL.md", () => {

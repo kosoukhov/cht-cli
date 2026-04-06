@@ -3,7 +3,7 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const DELETE_MD = path.join(process.cwd(), "skills/cht-delete/SKILL.md");
+const DELETE_MD = path.join(process.cwd(), ".claude/skills/cht-delete/SKILL.md");
 
 describe("/cht-delete SKILL.md", () => {
   const raw = fs.readFileSync(DELETE_MD, "utf-8");

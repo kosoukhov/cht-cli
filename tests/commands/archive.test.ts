@@ -5,7 +5,7 @@ import path from "node:path";
 
 const ARCHIVE_MD = path.join(
   process.cwd(),
-  "skills/cht-archive/SKILL.md",
+  ".claude/skills/cht-archive/SKILL.md",
 );
 
 describe("/cht-archive SKILL.md", () => {
