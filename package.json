@@ -5,11 +5,22 @@
   "description": "Chat persistence for Claude Code — save, search, and continue conversations as local markdown files",
   "license": "MIT",
   "author": "Vadim Kosoukhov",
-  "keywords": ["claude", "claude-code", "chat", "persistence", "markdown", "conversation", "history"],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "chat",
+    "persistence",
+    "markdown",
+    "conversation",
+    "history"
+  ],
   "bin": {
-    "cht": "bin/cht.ts"
+    "cht": "dist/cht.js"
   },
-  "files": ["bin/cht.ts", "src/", ".claude/skills/"],
+  "files": [
+    "dist/",
+    ".claude/skills/"
+  ],
   "engines": {
     "node": ">=22.0.0"
   },
@@ -22,7 +33,9 @@
     "url": "https://github.com/kosoukhov/cht-cli/issues"
   },
   "scripts": {
+    "build": "tsup",
     "check": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -37,6 +50,7 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@types/proper-lockfile": "^4.1.4",
+    "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   }
