@@ -55,7 +55,7 @@
 **Milestone Goal:** Migrate 13 cht-skills to user-global `~/.claude/skills/cht-*/SKILL.md` format with `/cht-command` syntax, CLI-based hooks, and one-command setup.
 
 - [x] **Phase 17: Hook Subcommands** -- CLI hook commands replacing TypeScript hook scripts (completed 2026-04-04)
-- [ ] **Phase 18: SKILL.md Migration** -- 13 skills converted to new format with updated syntax
+- [x] **Phase 18: SKILL.md Migration** -- 13 skills converted to new format with updated syntax (completed 2026-04-06)
 - [ ] **Phase 19: Setup & Distribution** -- Install, migrate, and validate tooling
 - [ ] **Phase 20: Documentation & Publish** -- README, migration guide, npm publish
 
@@ -86,8 +86,8 @@ Plans:
   4. Context-relevant skills (e.g., `/cht-search`) include description text that enables auto-invocation when users ask related questions
 **Plans**: 2 plans
 Plans:
-- [ ] 18-01-PLAN.md -- Create 13 skills/cht-*/SKILL.md files + update and create all 13 command tests
-- [ ] 18-02-PLAN.md -- Cross-reference updates (CLI, tests, README, package.json), delete old commands, human verify
+- [x] 18-01-PLAN.md -- Create 13 skills/cht-*/SKILL.md files + update and create all 13 command tests
+- [x] 18-02-PLAN.md -- Cross-reference updates (CLI, tests, README, package.json), delete old commands, human verify
 
 ### Phase 19: Setup & Distribution
 **Goal**: Users can install and validate the entire system with a single `cht setup` command, including clean migration from v2.1
@@ -134,6 +134,6 @@ Phases execute in numeric order: 17 -> 18 -> 19 -> 20
 | 15. Chat Rollover | v2.1 | 2/2 | Shipped | 2026-03-31 |
 | 16. Compact Integration | v2.1 | 2/2 | Shipped | 2026-03-31 |
 | 17. Hook Subcommands | v2.2 | 2/2 | Complete    | 2026-04-04 |
-| 18. SKILL.md Migration | v2.2 | 0/2 | Not started | - |
+| 18. SKILL.md Migration | v2.2 | 2/2 | Complete    | 2026-04-06 |
 | 19. Setup & Distribution | v2.2 | 0/TBD | Not started | - |
 | 20. Documentation & Publish | v2.2 | 0/TBD | Not started | - |
