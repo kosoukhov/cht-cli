@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Skills Format Migration
 status: executing
-stopped_at: Phase 21 context gathered
-last_updated: "2026-04-06T20:49:10.452Z"
-last_activity: 2026-04-06
+stopped_at: Phase 21 verified, Phase 20 next
+last_updated: "2026-04-07T10:00:00Z"
+last_activity: 2026-04-07
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 7
   completed_plans: 7
-  percent: 100
+  percent: 85
 ---
 
 # Project State
@@ -21,16 +21,25 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-04)
 
 **Core value:** Reliable local chat history with Claude -- crash-proof, offline-readable, full old conversations as context
-**Current focus:** Phase 21 — global-skill-installation-cht-setup-claude-skills
+**Current focus:** Phase 20 — Documentation & Publish
 
 ## Current Position
 
-Phase: 21
+Phase: 20
 Plan: Not started
-Status: Executing Phase 21
-Last activity: 2026-04-06
+Status: Phase 21 verified, Phase 20 (Documentation & Publish) is next
+Last activity: 2026-04-07
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [########--] 85%
+
+Completed in v2.2:
+- Phase 17 (Hook Subcommands) — 2/2 plans, verified
+- Phase 18 (SKILL.md Migration) — 2/2 plans, verified
+- Phase 19 (Setup & Distribution) — merged into Phase 21
+- Phase 21 (Global Skill Installation) — 3/3 plans, verified (4/4 criteria)
+
+Remaining:
+- Phase 20 (Documentation & Publish) — README update, migration guide, npm publish
 
 ## Performance Metrics
 
@@ -54,11 +63,12 @@ None.
 
 ### Blockers/Concerns
 
-- Research flag: Phase 19 (Setup & Distribution) may benefit from reviewing GSD's installer patterns for settings.json merging and idempotency.
+None.
 
 ### Roadmap Evolution
 
-- Phase 21 added: Global skill installation — cht setup устанавливает скиллы в ~/.claude/skills/
+- Phase 19 merged into Phase 21 (setup + build pipeline combined)
+- Phase 21 verified: cht setup/doctor/migrate all working, tsup build pipeline, 402 tests
 
 ### Quick Tasks Completed
 
@@ -71,6 +81,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-06T14:46:41.353Z
-Stopped at: Phase 21 context gathered
-Next: `/gsd-discuss-phase 19` or `/gsd-plan-phase 19`
+Last session: 2026-04-07
+Stopped at: Phase 21 verified, memory/docs updated
+Next: `/gsd-discuss-phase 20` or `/gsd-plan-phase 20`
