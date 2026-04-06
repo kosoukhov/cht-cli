@@ -5,3 +5,4 @@ dist/
 chats/
 .planning/
 .DS_Store
+.claude/worktrees/
