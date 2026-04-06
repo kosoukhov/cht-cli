@@ -28,6 +28,8 @@ import {
   SessionEndInput,
 } from "../src/hooks/stdin.ts";
 import { registerHooks, cleanProjectHooks, copySkills } from "../src/hooks/setup.ts";
+import { runDoctor } from "../src/hooks/doctor.ts";
+import { runMigrate } from "../src/hooks/migrate.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ChatListEntry } from "../src/types.ts";
@@ -544,6 +546,27 @@ async function main(): Promise<void> {
         settings_cleaned: cleanup.cleaned,
       });
       if (skills.errors.length > 0) process.exit(1);
+      break;
+    }
+
+    case "doctor": {
+      const result = await runDoctor({ storageRoot });
+      output({
+        ok: result.overall === "ok",
+        overall: result.overall,
+        checks: result.checks,
+      });
+      // Doctor always exits 0 -- it's a reporting tool
+      break;
+    }
+
+    case "migrate": {
+      const result = await runMigrate();
+      output({
+        ok: true,
+        removed: result.removed,
+        warnings: result.warnings,
+      });
       break;
     }
 
