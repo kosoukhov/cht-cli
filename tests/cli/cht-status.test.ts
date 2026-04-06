@@ -53,7 +53,7 @@ describe("cht status", () => {
     const result = await runCht("status");
     expect(result.ok).toBe(false);
     expect(result.error).toBe(
-      "No active chat session. Start one with /cht:new or /cht:continue.",
+      "No active chat session. Start one with /cht-new or /cht-continue.",
     );
   });
 
@@ -93,7 +93,7 @@ describe("cht status", () => {
     expect(result.ok).toBe(true);
     expect(result.message_count).toBe(51);
     expect(result.warning).not.toBeNull();
-    expect(result.warning as string).toContain("/cht:rollover");
+    expect(result.warning as string).toContain("/cht-rollover");
   });
 
   it("file size threshold: warns even with few messages", { timeout: 30000 }, async () => {
@@ -110,7 +110,7 @@ describe("cht status", () => {
     expect(result.ok).toBe(true);
     expect((result.message_count as number)).toBeLessThan(50);
     expect(result.warning).not.toBeNull();
-    expect(result.warning as string).toContain("/cht:rollover");
+    expect(result.warning as string).toContain("/cht-rollover");
   });
 
   it("title and project in output", async () => {
