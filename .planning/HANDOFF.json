@@ -1,0 +1,29 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-04-06T09:26:42.739Z",
+  "phase": "18",
+  "phase_name": "skill-md-migration",
+  "phase_dir": ".planning/phases/18-skill-md-migration",
+  "plan": 2,
+  "task": 3,
+  "total_tasks": 3,
+  "status": "complete",
+  "completed_tasks": [
+    {"id": 1, "name": "Create 13 skills/cht-*/SKILL.md files from source commands", "status": "done", "commit": "ec11977"},
+    {"id": 2, "name": "Update 7 existing + create 6 new command test files", "status": "done", "commit": "e7511b8"},
+    {"id": 3, "name": "Update /cht: references in CLI, tests, README, package.json", "status": "done", "commit": "017ca97"},
+    {"id": 4, "name": "Delete old .claude/commands/cht/ directory", "status": "done", "commit": "a05bdef"},
+    {"id": 5, "name": "Fix: move skills/ to .claude/skills/", "status": "done", "commit": "bf49201"},
+    {"id": 6, "name": "Human verification checkpoint", "status": "done", "commit": "3d297cd"}
+  ],
+  "remaining_tasks": [],
+  "blockers": [],
+  "human_actions_pending": [],
+  "decisions": [
+    {"decision": "Moved skills from skills/ to .claude/skills/ for Claude Code discovery", "rationale": "Claude Code discovers skills from .claude/skills/, not project root skills/", "phase": "18"},
+    {"decision": "npm link to make cht available on PATH", "rationale": "Skills use Bash(cht *) but cht wasn't globally installed during development", "phase": "18"}
+  ],
+  "uncommitted_files": ["Makefile", "bin/chat"],
+  "next_action": "Phase 18 complete. Next: /gsd-discuss-phase 19 or /gsd-plan-phase 19 (setup-&-distribution)",
+  "context_notes": "Phase 18 fully executed and verified. All 388 tests pass. 13 skills migrated to .claude/skills/cht-*/SKILL.md. Human verified all 5 UAT checks pass. Phase marked complete in ROADMAP. Next phase is 19 (setup-&-distribution)."
+}
