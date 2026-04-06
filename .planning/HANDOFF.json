@@ -1,29 +1,26 @@
 {
   "version": "1.0",
-  "timestamp": "2026-04-06T09:26:42.739Z",
-  "phase": "18",
-  "phase_name": "skill-md-migration",
-  "phase_dir": ".planning/phases/18-skill-md-migration",
-  "plan": 2,
-  "task": 3,
-  "total_tasks": 3,
-  "status": "complete",
+  "timestamp": "2026-04-06T20:49:31.476Z",
+  "phase": "21",
+  "phase_name": "global-skill-installation-cht-setup-claude-skills",
+  "phase_dir": ".planning/phases/21-global-skill-installation-cht-setup-claude-skills",
+  "plan": 3,
+  "task": 2,
+  "total_tasks": 2,
+  "status": "phase_complete",
   "completed_tasks": [
-    {"id": 1, "name": "Create 13 skills/cht-*/SKILL.md files from source commands", "status": "done", "commit": "ec11977"},
-    {"id": 2, "name": "Update 7 existing + create 6 new command test files", "status": "done", "commit": "e7511b8"},
-    {"id": 3, "name": "Update /cht: references in CLI, tests, README, package.json", "status": "done", "commit": "017ca97"},
-    {"id": 4, "name": "Delete old .claude/commands/cht/ directory", "status": "done", "commit": "a05bdef"},
-    {"id": 5, "name": "Fix: move skills/ to .claude/skills/", "status": "done", "commit": "bf49201"},
-    {"id": 6, "name": "Human verification checkpoint", "status": "done", "commit": "3d297cd"}
+    {"id": 1, "plan": "21-01", "name": "Build pipeline (tsup)", "status": "done", "commit": "44fbffd..3d56c40"},
+    {"id": 2, "plan": "21-02", "name": "Setup/doctor/migrate commands", "status": "done", "commit": "5ca1e37..c7be338"},
+    {"id": 3, "plan": "21-03", "name": "E2E integration verification", "status": "done", "commit": "1563ed2"}
   ],
   "remaining_tasks": [],
   "blockers": [],
   "human_actions_pending": [],
   "decisions": [
-    {"decision": "Moved skills from skills/ to .claude/skills/ for Claude Code discovery", "rationale": "Claude Code discovers skills from .claude/skills/, not project root skills/", "phase": "18"},
-    {"decision": "npm link to make cht available on PATH", "rationale": "Skills use Bash(cht *) but cht wasn't globally installed during development", "phase": "18"}
+    {"decision": "Fixed stale dist/cht/ artifacts by clean rebuild", "rationale": "Old session left orphaned files in dist/ that polluted npm pack", "phase": "21"},
+    {"decision": "npm link to fix global symlink", "rationale": "/opt/homebrew/bin/cht pointed to old bin/cht.ts instead of dist/cht.js", "phase": "21"}
   ],
-  "uncommitted_files": ["Makefile", "bin/chat"],
-  "next_action": "Phase 18 complete. Next: /gsd-discuss-phase 19 or /gsd-plan-phase 19 (setup-&-distribution)",
-  "context_notes": "Phase 18 fully executed and verified. All 388 tests pass. 13 skills migrated to .claude/skills/cht-*/SKILL.md. Human verified all 5 UAT checks pass. Phase marked complete in ROADMAP. Next phase is 19 (setup-&-distribution)."
+  "uncommitted_files": ["package-lock.json"],
+  "next_action": "Milestone v2.2 complete. Options: /gsd-audit-milestone, /gsd-complete-milestone, or npm publish with version bump",
+  "context_notes": "Phase 21 was the last phase of milestone v2.2 (Skills Format Migration). All 3 plans executed, verified 4/4 must-haves. 402 tests green. Skills now install via cht setup to ~/.claude/skills/. Ready to close milestone."
 }
