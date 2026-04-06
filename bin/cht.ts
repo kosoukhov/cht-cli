@@ -27,7 +27,7 @@ import {
   PostCompactInput,
   SessionEndInput,
 } from "../src/hooks/stdin.ts";
-import { registerHooks, cleanProjectHooks } from "../src/hooks/setup.ts";
+import { registerHooks, cleanProjectHooks, copySkills } from "../src/hooks/setup.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ChatListEntry } from "../src/types.ts";
@@ -531,22 +531,26 @@ async function main(): Promise<void> {
     }
 
     case "setup": {
-      const result = await registerHooks();
+      const skills = await copySkills(import.meta.dirname);
+      const hooks = await registerHooks();
       const cleanup = await cleanProjectHooks();
       output({
-        ok: true,
-        hooks_added: result.added,
-        hooks_skipped: result.skipped,
+        ok: skills.errors.length === 0,
+        skills_copied: skills.copied,
+        skills_errors: skills.errors,
+        hooks_added: hooks.added,
+        hooks_skipped: hooks.skipped,
         files_deleted: cleanup.deleted,
         settings_cleaned: cleanup.cleaned,
       });
+      if (skills.errors.length > 0) process.exit(1);
       break;
     }
 
     default: {
       output({
         ok: false,
-        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects, status, rollover, hook-save-user, hook-save-assistant, hook-save-compact, hook-session-clear, setup`,
+        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects, status, rollover, hook-save-user, hook-save-assistant, hook-save-compact, hook-session-clear, setup, doctor, migrate`,
       });
       process.exit(1);
     }
