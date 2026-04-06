@@ -14,27 +14,22 @@ Requirements: Node.js 22+, Claude Code CLI.
 
 ```bash
 npm install -g @kosoukhov/cht-cli
+cht setup
 ```
 
-Or use without installing:
+`cht setup` registers 13 slash commands and 4 auto-save hooks in your Claude Code configuration. Run it once after installation, and again after updates.
+
+Verify the installation:
 
 ```bash
-npx @kosoukhov/cht-cli
+cht doctor
 ```
-
-Open Claude Code in your project directory:
-
-```bash
-claude
-```
-
-All `/cht-*` commands and auto-save hooks are picked up automatically from `.claude/`.
 
 ## Quick Start
 
 ```
 /cht-new myproject "Auth refactor"                # create a chat
-...                                               # work as usual
+...                                               # work as usual — messages auto-saved
 /cht-end                                          # stop recording
 ```
 
@@ -73,6 +68,16 @@ On next Claude Code launch:
 | `/cht-delete` | `[project]` | Delete permanently |
 | `/cht-status` | -- | Show current chat stats (size, messages, chain info) |
 | `/cht-rollover` | -- | Start a new file for the current chat, linking old and new |
+
+## Setup Commands
+
+These are terminal commands (not Claude Code slash commands):
+
+| Command | Description |
+|---------|-------------|
+| `cht setup` | Copy skills to `~/.claude/skills/` and register hooks in `~/.claude/settings.json` |
+| `cht doctor` | Validate installation: skills present, hooks registered, CLI on PATH, storage accessible |
+| `cht migrate` | Remove old `.claude/commands/cht/` format if present |
 
 ## Usage Examples
 
@@ -164,6 +169,22 @@ chats/
 ```
 
 Each file is plain markdown that can be read, edited, and committed to git.
+
+## Upgrading from v1.x
+
+If you used the old `/cht:command` syntax (colon-separated):
+
+```bash
+npm install -g @kosoukhov/cht-cli    # install latest
+cht setup                             # register new skills and hooks
+cht migrate                           # remove old .claude/commands/cht/ format
+cht doctor                            # verify everything is green
+```
+
+Key changes:
+- Command syntax: `/cht:new` is now `/cht-new` (colon replaced with hyphen)
+- Skills location: moved from `.claude/commands/cht/` to `~/.claude/skills/cht-*/`
+- Installation: one-time `cht setup` required after `npm install`
 
 ## License
 
