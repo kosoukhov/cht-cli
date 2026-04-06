@@ -115,9 +115,9 @@ Plans:
   4. Running `cht setup` a second time completes without errors and without duplicating any entries
 **Plans**: 3 plans
 Plans:
-- [ ] 21-01-PLAN.md -- tsup build pipeline: config, package.json updates, shebang fix
-- [ ] 21-02-PLAN.md -- Setup skill copy, doctor validation, migrate old format + tests
-- [ ] 21-03-PLAN.md -- Integration verification: npm pack, built binary, human sign-off
+- [x] 21-01-PLAN.md -- tsup build pipeline: config, package.json updates, shebang fix
+- [x] 21-02-PLAN.md -- Setup skill copy, doctor validation, migrate old format + tests
+- [x] 21-03-PLAN.md -- Integration verification: npm pack, built binary, human sign-off
 
 ## Progress
 
@@ -146,4 +146,4 @@ Phases execute in numeric order: 17 -> 18 -> 21 -> 20
 | 18. SKILL.md Migration | v2.2 | 2/2 | Complete    | 2026-04-06 |
 | 19. Setup & Distribution | v2.2 | - | Merged into Phase 21 | - |
 | 20. Documentation & Publish | v2.2 | 0/TBD | Not started | - |
-| 21. Global Skill Installation | v2.2 | 0/3 | Planned | - |
+| 21. Global Skill Installation | v2.2 | 3/3 | Complete    | 2026-04-06 |
