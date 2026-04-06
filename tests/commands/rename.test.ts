@@ -3,9 +3,9 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const RENAME_MD = path.join(process.cwd(), ".claude/commands/cht/rename.md");
+const RENAME_MD = path.join(process.cwd(), "skills/cht-rename/SKILL.md");
 
-describe("/cht:rename SKILL.md", () => {
+describe("/cht-rename SKILL.md", () => {
   const raw = fs.readFileSync(RENAME_MD, "utf-8");
   const { data: frontmatter, content: body } = matter(raw);
 
@@ -13,24 +13,26 @@ describe("/cht:rename SKILL.md", () => {
     expect(fs.existsSync(RENAME_MD)).toBe(true);
   });
 
+  it("frontmatter.name equals cht-rename", () => {
+    expect(frontmatter.name).toBe("cht-rename");
+  });
+
   it("frontmatter.description is defined and contains 'rename'", () => {
     expect(frontmatter.description).toBeDefined();
     expect(frontmatter.description.toLowerCase()).toContain("rename");
   });
 
-  it("allowed-tools contains Bash(node --experimental-strip-types bin/cht.ts *)", () => {
+  it("allowed-tools contains Bash(cht *)", () => {
     const tools = frontmatter["allowed-tools"] as string;
-    expect(tools).toContain(
-      "Bash(node --experimental-strip-types bin/cht.ts *)",
-    );
+    expect(tools).toContain("Bash(cht *)");
   });
 
-  it("body contains bin/cht.ts rename (invokes CLI rename subcommand)", () => {
-    expect(body).toContain("bin/cht.ts rename");
+  it("body contains cht rename (invokes CLI rename subcommand)", () => {
+    expect(body).toContain("cht rename");
   });
 
-  it("body contains bin/cht.ts list (lists chats for selection)", () => {
-    expect(body).toContain("bin/cht.ts list");
+  it("body contains cht list (lists chats for selection)", () => {
+    expect(body).toContain("cht list");
   });
 
   it("body asks for new title", () => {
@@ -50,5 +52,9 @@ describe("/cht:rename SKILL.md", () => {
 
   it("body contains 'frontmatter' (documents that only title changes, not file path)", () => {
     expect(body).toContain("frontmatter");
+  });
+
+  it("body does NOT contain old CLI invocation", () => {
+    expect(body).not.toContain("node --experimental-strip-types");
   });
 });

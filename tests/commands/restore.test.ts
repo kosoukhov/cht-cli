@@ -5,10 +5,10 @@ import path from "node:path";
 
 const RESTORE_MD = path.join(
   process.cwd(),
-  ".claude/commands/cht/restore.md",
+  "skills/cht-restore/SKILL.md",
 );
 
-describe("/cht:restore SKILL.md", () => {
+describe("/cht-restore SKILL.md", () => {
   const raw = fs.readFileSync(RESTORE_MD, "utf-8");
   const { data: frontmatter, content: body } = matter(raw);
 
@@ -16,27 +16,33 @@ describe("/cht:restore SKILL.md", () => {
     expect(fs.existsSync(RESTORE_MD)).toBe(true);
   });
 
+  it("frontmatter.name equals cht-restore", () => {
+    expect(frontmatter.name).toBe("cht-restore");
+  });
+
   it("frontmatter.description is defined and contains 'restore'", () => {
     expect(frontmatter.description).toBeDefined();
     expect(frontmatter.description.toLowerCase()).toContain("restore");
   });
 
-  it("allowed-tools contains Bash(node --experimental-strip-types bin/cht.ts *)", () => {
+  it("allowed-tools contains Bash(cht *)", () => {
     const tools = frontmatter["allowed-tools"] as string;
-    expect(tools).toContain(
-      "Bash(node --experimental-strip-types bin/cht.ts *)",
-    );
+    expect(tools).toContain("Bash(cht *)");
   });
 
   it("body contains '--archived' (uses archived list, per D-03)", () => {
     expect(body).toContain("--archived");
   });
 
-  it("body contains bin/cht.ts restore (invokes CLI restore subcommand)", () => {
-    expect(body).toContain("bin/cht.ts restore");
+  it("body contains cht restore (invokes CLI restore subcommand)", () => {
+    expect(body).toContain("cht restore");
   });
 
   it("body contains 'No archived chats' (empty state)", () => {
     expect(body).toContain("No archived chats");
+  });
+
+  it("body does NOT contain old CLI invocation", () => {
+    expect(body).not.toContain("node --experimental-strip-types");
   });
 });

@@ -3,15 +3,19 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const TAG_MD = path.join(process.cwd(), ".claude/commands/cht/tag.md");
-const LIST_MD = path.join(process.cwd(), ".claude/commands/cht/list.md");
+const TAG_MD = path.join(process.cwd(), "skills/cht-tag/SKILL.md");
+const LIST_MD = path.join(process.cwd(), "skills/cht-list/SKILL.md");
 
-describe("/cht:tag SKILL.md", () => {
+describe("/cht-tag SKILL.md", () => {
   const raw = fs.readFileSync(TAG_MD, "utf-8");
   const { data: frontmatter, content: body } = matter(raw);
 
   it("file exists", () => {
     expect(fs.existsSync(TAG_MD)).toBe(true);
+  });
+
+  it("frontmatter.name equals cht-tag", () => {
+    expect(frontmatter.name).toBe("cht-tag");
   });
 
   it("frontmatter.description is defined and contains 'tag'", () => {
@@ -25,11 +29,9 @@ describe("/cht:tag SKILL.md", () => {
     expect(hint).toContain("remove");
   });
 
-  it("allowed-tools contains Bash(node --experimental-strip-types bin/cht.ts *)", () => {
+  it("allowed-tools contains Bash(cht *)", () => {
     const tools = frontmatter["allowed-tools"] as string;
-    expect(tools).toContain(
-      "Bash(node --experimental-strip-types bin/cht.ts *)",
-    );
+    expect(tools).toContain("Bash(cht *)");
   });
 
   it("body contains session-get (checks for active chat per D-05)", () => {
@@ -58,9 +60,13 @@ describe("/cht:tag SKILL.md", () => {
   it("body contains 'Which tag' (handles missing tag name)", () => {
     expect(body).toContain("Which tag");
   });
+
+  it("body does NOT contain old CLI invocation", () => {
+    expect(body).not.toContain("node --experimental-strip-types");
+  });
 });
 
-describe("/cht:list tag display update (D-06)", () => {
+describe("/cht-list tag display update (D-06)", () => {
   const raw = fs.readFileSync(LIST_MD, "utf-8");
   const { content: body } = matter(raw);
 

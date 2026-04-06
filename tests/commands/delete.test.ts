@@ -3,9 +3,9 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const DELETE_MD = path.join(process.cwd(), ".claude/commands/cht/delete.md");
+const DELETE_MD = path.join(process.cwd(), "skills/cht-delete/SKILL.md");
 
-describe("/cht:delete SKILL.md", () => {
+describe("/cht-delete SKILL.md", () => {
   const raw = fs.readFileSync(DELETE_MD, "utf-8");
   const { data: frontmatter, content: body } = matter(raw);
 
@@ -13,20 +13,22 @@ describe("/cht:delete SKILL.md", () => {
     expect(fs.existsSync(DELETE_MD)).toBe(true);
   });
 
+  it("frontmatter.name equals cht-delete", () => {
+    expect(frontmatter.name).toBe("cht-delete");
+  });
+
   it("frontmatter.description is defined and contains 'delete'", () => {
     expect(frontmatter.description).toBeDefined();
     expect(frontmatter.description.toLowerCase()).toContain("delete");
   });
 
-  it("allowed-tools contains Bash(node --experimental-strip-types bin/cht.ts *)", () => {
+  it("allowed-tools contains Bash(cht *)", () => {
     const tools = frontmatter["allowed-tools"] as string;
-    expect(tools).toContain(
-      "Bash(node --experimental-strip-types bin/cht.ts *)",
-    );
+    expect(tools).toContain("Bash(cht *)");
   });
 
-  it("body contains bin/cht.ts delete (invokes CLI delete subcommand)", () => {
-    expect(body).toContain("bin/cht.ts delete");
+  it("body contains cht delete (invokes CLI delete subcommand)", () => {
+    expect(body).toContain("cht delete");
   });
 
   it("body contains 'cannot be undone' (confirmation per D-07)", () => {
@@ -41,5 +43,9 @@ describe("/cht:delete SKILL.md", () => {
 
   it("body contains 'No chats found' (empty state handling)", () => {
     expect(body).toContain("No chats found");
+  });
+
+  it("body does NOT contain old CLI invocation", () => {
+    expect(body).not.toContain("node --experimental-strip-types");
   });
 });
