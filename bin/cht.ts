@@ -339,7 +339,7 @@ async function main(): Promise<void> {
     case "status": {
       const active = await getActiveChat();
       if (!active) {
-        output({ ok: false, error: "No active chat session. Start one with /cht:new or /cht:continue." });
+        output({ ok: false, error: "No active chat session. Start one with /cht-new or /cht-continue." });
         process.exit(1);
         return;
       }
@@ -366,9 +366,9 @@ async function main(): Promise<void> {
       const isLarge = messageCount >= MESSAGE_THRESHOLD || fileSizeBytes >= SIZE_THRESHOLD;
       let warning: string | null = null;
       if (isLarge && compactCount > 0) {
-        warning = `Chat has been compacted ${compactCount} time(s). Consider /cht:rollover to start fresh with context.`;
+        warning = `Chat has been compacted ${compactCount} time(s). Consider /cht-rollover to start fresh with context.`;
       } else if (isLarge) {
-        warning = "Chat is getting large. Run /cht:rollover to continue in a new file with context linked.";
+        warning = "Chat is getting large. Run /cht-rollover to continue in a new file with context linked.";
       }
 
       // Resolve chain links for rollover navigation (D-08)
@@ -421,7 +421,7 @@ async function main(): Promise<void> {
       // 1. Verify active session exists
       const active = await getActiveChat();
       if (!active) {
-        output({ ok: false, error: "No active chat to roll over. Start one with /cht:new." });
+        output({ ok: false, error: "No active chat to roll over. Start one with /cht-new." });
         process.exit(1);
         return;
       }
