@@ -3,7 +3,7 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const INCLUDE_PATH = path.join(process.cwd(), "skills/cht-include/SKILL.md");
+const INCLUDE_PATH = path.join(process.cwd(), ".claude/skills/cht-include/SKILL.md");
 
 describe("/cht-include SKILL.md", () => {
   it("file exists", () => {

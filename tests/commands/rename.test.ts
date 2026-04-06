@@ -3,7 +3,7 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const RENAME_MD = path.join(process.cwd(), "skills/cht-rename/SKILL.md");
+const RENAME_MD = path.join(process.cwd(), ".claude/skills/cht-rename/SKILL.md");
 
 describe("/cht-rename SKILL.md", () => {
   const raw = fs.readFileSync(RENAME_MD, "utf-8");

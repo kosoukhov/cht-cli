@@ -3,7 +3,7 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const ROLLOVER_MD = path.join(process.cwd(), "skills/cht-rollover/SKILL.md");
+const ROLLOVER_MD = path.join(process.cwd(), ".claude/skills/cht-rollover/SKILL.md");
 
 describe("/cht-rollover SKILL.md", () => {
   const raw = fs.readFileSync(ROLLOVER_MD, "utf-8");

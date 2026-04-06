@@ -5,7 +5,7 @@ import path from "node:path";
 
 const CONTINUE_MD = path.join(
   process.cwd(),
-  "skills/cht-continue/SKILL.md",
+  ".claude/skills/cht-continue/SKILL.md",
 );
 
 describe("/cht-continue SKILL.md", () => {

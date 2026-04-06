@@ -3,7 +3,7 @@ import matter from "gray-matter";
 import fs from "node:fs";
 import path from "node:path";
 
-const NEW_MD = path.join(process.cwd(), "skills/cht-new/SKILL.md");
+const NEW_MD = path.join(process.cwd(), ".claude/skills/cht-new/SKILL.md");
 
 describe("/cht-new SKILL.md", () => {
   const raw = fs.readFileSync(NEW_MD, "utf-8");
