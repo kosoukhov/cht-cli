@@ -255,12 +255,16 @@ describe("copySkills", () => {
   });
 
   it("returns error when source directory does not exist", async () => {
-    const metaDirname = path.join(tmpSource, "nonexistent");
+    // Use a separate temp dir that has NO .claude/skills/ at all
+    const emptyRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cht-copy-empty-"));
+    const metaDirname = path.join(emptyRoot, "dist");
     await fs.mkdir(metaDirname, { recursive: true });
     const result = await copySkills(metaDirname, tmpTarget);
 
     expect(result.copied).toHaveLength(0);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("Skills source not found");
+
+    await fs.rm(emptyRoot, { recursive: true, force: true });
   });
 });

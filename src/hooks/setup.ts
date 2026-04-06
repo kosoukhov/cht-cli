@@ -132,3 +132,55 @@ export async function cleanProjectHooks(
 
   return { deleted, cleaned };
 }
+
+/**
+ * Resolve the package root directory from the executing file's dirname.
+ * In production (dist/cht.js): metaDirname = .../node_modules/@kosoukhov/cht-cli/dist
+ * In dev (bin/cht.ts via vitest): metaDirname = .../project/bin
+ * Both cases: parent directory is the package root.
+ */
+export function resolvePackageRoot(metaDirname: string): string {
+  return path.resolve(metaDirname, "..");
+}
+
+/**
+ * Copy all cht-* skill directories from the package's .claude/skills/ to the
+ * target directory (default: ~/.claude/skills/). Overwrites existing files.
+ * Per D-06: overwrite all on every run (like GSD). Simple, idempotent.
+ * Per D-07: metaDirname passed from import.meta.dirname at the call site.
+ */
+export async function copySkills(
+  metaDirname: string,
+  targetRoot?: string,
+): Promise<{ copied: string[]; errors: string[] }> {
+  const pkgRoot = resolvePackageRoot(metaDirname);
+  const skillsSource = path.join(pkgRoot, ".claude", "skills");
+  const skillsTarget = targetRoot ?? path.join(os.homedir(), ".claude", "skills");
+
+  const copied: string[] = [];
+  const errors: string[] = [];
+
+  let entries;
+  try {
+    entries = await fs.readdir(skillsSource, { withFileTypes: true });
+  } catch {
+    errors.push(`Skills source not found: ${skillsSource}`);
+    return { copied, errors };
+  }
+
+  const chtSkills = entries.filter(e => e.isDirectory() && e.name.startsWith("cht-"));
+
+  for (const skill of chtSkills) {
+    try {
+      const src = path.join(skillsSource, skill.name);
+      const dst = path.join(skillsTarget, skill.name);
+      await fs.mkdir(dst, { recursive: true });
+      await fs.cp(src, dst, { recursive: true, force: true });
+      copied.push(skill.name);
+    } catch (err) {
+      errors.push(`${skill.name}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return { copied, errors };
+}
