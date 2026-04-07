@@ -170,6 +170,22 @@ chats/
 
 Each file is plain markdown that can be read, edited, and committed to git.
 
+### Storage Location
+
+The storage directory is resolved in this priority order:
+
+1. `CHAT_STORAGE_DIR` environment variable (explicit override)
+2. `CLAUDE_PROJECT_DIR/chats` (set automatically by Claude Code hooks)
+3. `./chats` in the current working directory (default)
+
+To use a custom storage location:
+
+```bash
+export CHAT_STORAGE_DIR="$HOME/my-chats"
+```
+
+Run `cht doctor` to see which storage path is currently active.
+
 ## Upgrading from v1.x
 
 If you used the old `/cht:command` syntax (colon-separated):
