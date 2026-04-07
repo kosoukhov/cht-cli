@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -127,5 +127,139 @@ describe("runDoctor", () => {
     const failedChecks = result.checks.filter(c => c.status === "fail");
     expect(failedChecks).toHaveLength(1);
     expect(failedChecks[0].name).toBe("skill:cht-tag");
+  });
+});
+
+describe("runDoctor with version check", () => {
+  let tmpDir: string;
+  let skillsDir: string;
+  let settingsPath: string;
+  let storageDir: string;
+  const originalFetch = globalThis.fetch;
+
+  const EXPECTED_SKILLS = [
+    "cht-archive", "cht-continue", "cht-delete", "cht-end",
+    "cht-include", "cht-list", "cht-new", "cht-rename",
+    "cht-restore", "cht-rollover", "cht-search", "cht-status", "cht-tag",
+  ];
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "cht-doctor-vc-"));
+    skillsDir = path.join(tmpDir, "skills");
+    storageDir = path.join(tmpDir, "storage");
+    settingsPath = path.join(tmpDir, "settings.json");
+
+    for (const skill of EXPECTED_SKILLS) {
+      await fs.mkdir(path.join(skillsDir, skill), { recursive: true });
+      await fs.writeFile(path.join(skillsDir, skill, "SKILL.md"), `# ${skill}`);
+    }
+    await fs.mkdir(storageDir, { recursive: true });
+
+    const settings = {
+      hooks: {
+        UserPromptSubmit: [{ hooks: [{ type: "command", command: "cht hook-save-user" }] }],
+        Stop: [{ hooks: [{ type: "command", command: "cht hook-save-assistant" }] }],
+        PostCompact: [{ hooks: [{ type: "command", command: "cht hook-save-compact" }] }],
+        SessionEnd: [{ hooks: [{ type: "command", command: "cht hook-session-clear" }] }],
+      },
+    };
+    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2));
+  });
+
+  afterEach(async () => {
+    globalThis.fetch = originalFetch;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("adds version ok check when up to date", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ version: "2.0.2" }),
+    });
+
+    const result = await runDoctor({
+      skillsDir,
+      settingsPath,
+      storageRoot: storageDir,
+      skipCliCheck: true,
+      checkVersion: true,
+    });
+
+    const versionCheck = result.checks.find(c => c.name === "version");
+    expect(versionCheck).toBeDefined();
+    expect(versionCheck!.status).toBe("ok");
+    expect(versionCheck!.detail).toContain("is the latest version");
+  });
+
+  it("adds version ok check when update available", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ version: "9.0.0" }),
+    });
+
+    const result = await runDoctor({
+      skillsDir,
+      settingsPath,
+      storageRoot: storageDir,
+      skipCliCheck: true,
+      checkVersion: true,
+    });
+
+    const versionCheck = result.checks.find(c => c.name === "version");
+    expect(versionCheck).toBeDefined();
+    expect(versionCheck!.status).toBe("ok");
+    expect(versionCheck!.detail).toContain("available");
+  });
+
+  it("adds version fail check on network error", async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("ENOTFOUND"));
+
+    const result = await runDoctor({
+      skillsDir,
+      settingsPath,
+      storageRoot: storageDir,
+      skipCliCheck: true,
+      checkVersion: true,
+    });
+
+    const versionCheck = result.checks.find(c => c.name === "version");
+    expect(versionCheck).toBeDefined();
+    expect(versionCheck!.status).toBe("fail");
+    expect(versionCheck!.detail).toContain("Could not reach npm registry");
+    expect(result.overall).toBe("fail");
+  });
+
+  it("does NOT include version check when checkVersion is not set", async () => {
+    const fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy;
+
+    const result = await runDoctor({
+      skillsDir,
+      settingsPath,
+      storageRoot: storageDir,
+      skipCliCheck: true,
+      // checkVersion NOT set
+    });
+
+    const versionCheck = result.checks.find(c => c.name === "version");
+    expect(versionCheck).toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("does NOT call fetch when checkVersion is false", async () => {
+    const fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy;
+
+    const result = await runDoctor({
+      skillsDir,
+      settingsPath,
+      storageRoot: storageDir,
+      skipCliCheck: true,
+      checkVersion: false,
+    });
+
+    const versionCheck = result.checks.find(c => c.name === "version");
+    expect(versionCheck).toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
