@@ -42,4 +42,4 @@ jobs:
       - name: Verify CLI binary executes
         run: |
           cd /tmp/smoke
-          npx cht --help
+          npx cht doctor
