@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
+import { checkLatestVersion } from "./version-check.ts";
 
 export interface DoctorCheck {
   name: string;
@@ -20,6 +21,7 @@ export async function runDoctor(options?: {
   settingsPath?: string;
   storageRoot?: string;
   skipCliCheck?: boolean;
+  checkVersion?: boolean;
 }): Promise<{ checks: DoctorCheck[]; overall: "ok" | "fail" }> {
   const checks: DoctorCheck[] = [];
   const skillsDir = options?.skillsDir ?? path.join(os.homedir(), ".claude", "skills");
@@ -81,6 +83,38 @@ export async function runDoctor(options?: {
       checks.push({ name: "storage", status: "ok", detail: options.storageRoot });
     } catch {
       checks.push({ name: "storage", status: "fail", detail: `Not accessible: ${options.storageRoot}` });
+    }
+  }
+
+  // 5. Version check (opt-in via --check-version flag) [D-01, D-09, D-14, D-15]
+  if (options?.checkVersion) {
+    try {
+      const info = await checkLatestVersion();
+      if (info.upToDate) {
+        // D-02: up-to-date format
+        checks.push({
+          name: "version",
+          status: "ok",
+          detail: `${info.current} is the latest version`,
+        });
+      } else {
+        // D-03: update-available format (status ok -- the check succeeded)
+        checks.push({
+          name: "version",
+          status: "ok",
+          detail: `${info.current} \u2192 ${info.latest} available`,
+        });
+      }
+    } catch (err) {
+      // D-05, D-06, D-07: network failure = fail status, no retry
+      const msg = err instanceof Error
+        ? (err.name === "TimeoutError" ? `timeout ${5000 / 1000}s` : err.message)
+        : "unknown error";
+      checks.push({
+        name: "version",
+        status: "fail",
+        detail: `Could not reach npm registry (${msg})`,
+      });
     }
   }
 

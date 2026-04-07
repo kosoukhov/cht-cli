@@ -550,7 +550,8 @@ async function main(): Promise<void> {
     }
 
     case "doctor": {
-      const result = await runDoctor({ storageRoot });
+      const checkVersion = hasFlag("--check-version");
+      const result = await runDoctor({ storageRoot, checkVersion });
       output({
         ok: result.overall === "ok",
         overall: result.overall,
