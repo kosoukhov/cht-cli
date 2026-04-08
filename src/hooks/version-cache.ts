@@ -20,9 +20,10 @@ export function getCachePath(): string {
 
 export function readVersionCache(cachePath?: string): VersionCache | null {
   try {
-    const data = JSON.parse(readFileSync(cachePath ?? getCachePath(), "utf-8")) as VersionCache;
-    if (!data.latest || !data.checked_at) return null;
-    return data;
+    const data = JSON.parse(readFileSync(cachePath ?? getCachePath(), "utf-8"));
+    if (typeof data.latest !== "string" || !data.latest) return null;
+    if (typeof data.checked_at !== "number") return null;
+    return { latest: data.latest, checked_at: data.checked_at };
   } catch {
     return null; // D-22: silently skip missing or corrupt cache
   }

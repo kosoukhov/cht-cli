@@ -98,6 +98,28 @@ describe("version-cache", () => {
       const result = readVersionCache("/tmp/cache.json");
       expect(result).toBeNull();
     });
+
+    it("returns null when latest is not a string", () => {
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ latest: 123, checked_at: Date.now() }));
+      expect(readVersionCache("/tmp/cache.json")).toBeNull();
+    });
+
+    it("returns null when checked_at is not a number", () => {
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ latest: "2.1.0", checked_at: "not-a-number" }));
+      expect(readVersionCache("/tmp/cache.json")).toBeNull();
+    });
+
+    it("returns null when latest is empty string", () => {
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ latest: "", checked_at: Date.now() }));
+      expect(readVersionCache("/tmp/cache.json")).toBeNull();
+    });
+
+    it("returns valid cache with only known fields when extra properties present", () => {
+      const now = Date.now();
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ latest: "2.1.0", checked_at: now, extra: "ignored" }));
+      const result = readVersionCache("/tmp/cache.json");
+      expect(result).toEqual({ latest: "2.1.0", checked_at: now });
+    });
   });
 
   describe("writeVersionCache", () => {
