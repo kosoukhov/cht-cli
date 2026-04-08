@@ -34,6 +34,9 @@ export async function checkLatestVersion(): Promise<VersionInfo> {
     throw new Error(`HTTP ${res.status}`);
   }
   const data = (await res.json()) as { version: string };
+  if (typeof data.version !== "string" || !data.version) {
+    throw new Error("Invalid registry response: missing version field");
+  }
   const latest = data.version;
 
   return {
@@ -45,12 +48,18 @@ export async function checkLatestVersion(): Promise<VersionInfo> {
 
 /** Compare two semver strings (major.minor.patch only). Returns 1, 0, or -1. */
 export function compareSemver(a: string, b: string): number {
-  const parse = (v: string) => v.split("-")[0].split(".").map(Number);
+  const parse = (v: string) =>
+    v.split("-")[0].split(".").map((s) => {
+      const n = Number(s);
+      return Number.isNaN(n) ? 0 : n;
+    });
   const pa = parse(a);
   const pb = parse(b);
   for (let i = 0; i < 3; i++) {
-    if (pa[i] > pb[i]) return 1;
-    if (pa[i] < pb[i]) return -1;
+    const va = pa[i] ?? 0;
+    const vb = pb[i] ?? 0;
+    if (va > vb) return 1;
+    if (va < vb) return -1;
   }
   return 0;
 }
