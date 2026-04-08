@@ -19,6 +19,26 @@ describe("compareSemver", () => {
     expect(compareSemver("1.0.0-beta", "1.0.0")).toBe(0);
     expect(compareSemver("1.0.0", "1.0.1-rc.1")).toBe(-1);
   });
+
+  it("handles partial versions — missing patch treated as 0", () => {
+    expect(compareSemver("2.0", "2.0.1")).toBe(-1);
+    expect(compareSemver("2.0.1", "2.0")).toBe(1);
+  });
+
+  it("handles partial versions — missing minor and patch treated as 0", () => {
+    expect(compareSemver("2", "2.0.0")).toBe(0);
+    expect(compareSemver("2.0.0", "2")).toBe(0);
+  });
+
+  it("treats non-numeric segments as 0", () => {
+    expect(compareSemver("abc.def.ghi", "1.0.0")).toBe(-1);
+    expect(compareSemver("1.0.0", "abc.0.0")).toBe(1);
+  });
+
+  it("handles empty string as 0.0.0", () => {
+    expect(compareSemver("", "1.0.0")).toBe(-1);
+    expect(compareSemver("0.0.0", "")).toBe(0);
+  });
 });
 
 describe("checkLatestVersion", () => {
@@ -60,6 +80,14 @@ describe("checkLatestVersion", () => {
       status: 404,
     });
     await expect(checkLatestVersion()).rejects.toThrow("HTTP 404");
+  });
+
+  it("throws on invalid registry response (non-string version)", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ version: 123 }),
+    });
+    await expect(checkLatestVersion()).rejects.toThrow("Invalid registry response");
   });
 
   it("calls fetch with correct URL and timeout signal", async () => {
