@@ -22,7 +22,7 @@
     ".claude/skills/"
   ],
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=20.0.0"
   },
   "repository": {
     "type": "git",
@@ -40,6 +40,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@kosoukhov/cht-cli": "^2.0.2",
     "atomically": "^2.1.1",
     "fuse.js": "^7.1.0",
     "gray-matter": "^4.0.3",
