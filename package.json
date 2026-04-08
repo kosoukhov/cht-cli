@@ -1,6 +1,6 @@
 {
   "name": "@kosoukhov/cht-cli",
-  "version": "2.0.2",
+  "version": "2.3.0-rc.1",
   "type": "module",
   "description": "Chat persistence for Claude Code — save, search, and continue conversations as local markdown files",
   "license": "MIT",
@@ -40,7 +40,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@kosoukhov/cht-cli": "^2.0.2",
     "atomically": "^2.1.1",
     "fuse.js": "^7.1.0",
     "gray-matter": "^4.0.3",

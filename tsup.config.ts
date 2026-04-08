@@ -3,7 +3,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: ["bin/cht.ts"],
   format: ["esm"],
-  target: "node22",
+  target: "node20",
   platform: "node",
   outDir: "dist",
   clean: true,
