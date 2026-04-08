@@ -42,17 +42,18 @@ export function isCacheStale(cache: VersionCache | null): boolean {
 export function spawnBackgroundRefresh(cachePath?: string): void {
   const target = cachePath ?? getCachePath();
   const script = [
+    `const target = process.argv[2];`,
     `const r = await fetch("${REGISTRY_URL}", { signal: AbortSignal.timeout(5000) });`,
     `if (r.ok) {`,
     `  const d = await r.json();`,
     `  const fs = await import("node:fs");`,
     `  const path = await import("node:path");`,
-    `  fs.mkdirSync(path.dirname("${target}"), { recursive: true });`,
-    `  fs.writeFileSync("${target}", JSON.stringify({ latest: d.version, checked_at: Date.now() }));`,
+    `  fs.mkdirSync(path.dirname(target), { recursive: true });`,
+    `  fs.writeFileSync(target, JSON.stringify({ latest: d.version, checked_at: Date.now() }));`,
     `}`,
   ].join("\n");
 
-  const child = spawn(process.execPath, ["--input-type=module", "-e", script], {
+  const child = spawn(process.execPath, ["--input-type=module", "-e", script, target], {
     detached: true,
     stdio: "ignore",
   });

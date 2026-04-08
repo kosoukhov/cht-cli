@@ -147,10 +147,27 @@ describe("version-cache", () => {
 
       expect(spawn).toHaveBeenCalledWith(
         process.execPath,
-        expect.arrayContaining(["--input-type=module"]),
+        ["--input-type=module", "-e", expect.any(String), "/tmp/cache.json"],
         expect.objectContaining({ detached: true, stdio: "ignore" }),
       );
       expect(unrefMock).toHaveBeenCalled();
+    });
+
+    it("passes cache path as argv, not interpolated into script", () => {
+      const unrefMock = vi.fn();
+      vi.mocked(spawn).mockReturnValue({ unref: unrefMock } as any);
+
+      const testPath = '/tmp/evil";process.exit(1);//.json';
+      spawnBackgroundRefresh(testPath);
+
+      const args = vi.mocked(spawn).mock.calls[0][1] as string[];
+      // Cache path is passed as separate argv element, not in the script
+      expect(args).toContain(testPath);
+      // Script (-e value) must NOT contain the literal path
+      const scriptArg = args[args.indexOf("-e") + 1];
+      expect(scriptArg).not.toContain(testPath);
+      // Script must read from process.argv
+      expect(scriptArg).toContain("process.argv[2]");
     });
   });
 
