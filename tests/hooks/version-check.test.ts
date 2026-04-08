@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { checkLatestVersion, compareSemver } from "../../src/hooks/version-check.ts";
+import { checkLatestVersion, compareSemver, loadPackageVersion } from "../../src/hooks/version-check.ts";
 
 describe("compareSemver", () => {
   it("returns 0 for equal versions", () => {
@@ -56,14 +56,15 @@ describe("checkLatestVersion", () => {
   });
 
   it("returns upToDate true when versions match", async () => {
+    const currentVersion = loadPackageVersion();
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ version: "2.0.2" }),
+      json: () => Promise.resolve({ version: currentVersion }),
     });
     const result = await checkLatestVersion();
     expect(result.upToDate).toBe(true);
-    expect(result.current).toBe("2.0.2");
-    expect(result.latest).toBe("2.0.2");
+    expect(result.current).toBe(currentVersion);
+    expect(result.latest).toBe(currentVersion);
   });
 
   it("returns upToDate false when newer version exists", async () => {
