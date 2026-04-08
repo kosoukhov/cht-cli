@@ -6,7 +6,8 @@ import os from "node:os";
 import { createChat } from "../../src/store/chat-store.ts";
 import { setActiveChat, clearActiveChat, getActiveChat } from "../../src/session/state.ts";
 
-const CHT_PATH = path.resolve("bin/cht.ts");
+import { chtExecArgs } from "./helpers.ts";
+const [chtCmd, chtArgs] = chtExecArgs();
 
 async function runHookCommand(
   command: string,
@@ -15,8 +16,8 @@ async function runHookCommand(
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const child = execFile(
-      "node",
-      ["--experimental-strip-types", CHT_PATH, command],
+      chtCmd,
+      [...chtArgs, command],
       { env: { ...process.env, ...env } },
       (error, stdout, stderr) => {
         resolve({

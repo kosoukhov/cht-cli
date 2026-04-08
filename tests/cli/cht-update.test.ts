@@ -2,17 +2,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
+import { chtExecArgs } from "./helpers.ts";
 
 const execFileAsync = promisify(execFile);
-const CHT_PATH = path.resolve("bin/cht.ts");
+const [chtCmd, chtArgs] = chtExecArgs();
+const CHT_SRC = path.resolve("bin/cht.ts");
 
 describe("cht update CLI routing", () => {
   it("update command is listed in available commands", async () => {
     // Run with an unknown command to see the available commands list
     try {
       await execFileAsync(
-        "node",
-        ["--experimental-strip-types", CHT_PATH, "UNKNOWN_COMMAND"],
+        chtCmd,
+        [...chtArgs, "UNKNOWN_COMMAND"],
         { env: { ...process.env } },
       );
     } catch (err: unknown) {
@@ -31,7 +33,7 @@ describe("cht update CLI routing", () => {
     // CLI parses --dry-run by checking hasFlag("--dry-run") is wired.
     // Instead, verify the import and case exist in the source.
     const fs = await import("node:fs/promises");
-    const source = await fs.readFile(CHT_PATH, "utf-8");
+    const source = await fs.readFile(CHT_SRC, "utf-8");
     expect(source).toContain('case "update"');
     expect(source).toContain('hasFlag("--dry-run")');
     expect(source).toContain("runUpdate({ dryRun })");
@@ -39,7 +41,7 @@ describe("cht update CLI routing", () => {
 
   it("hook commands do NOT use outputWithNotification", async () => {
     const fs = await import("node:fs/promises");
-    const source = await fs.readFile(CHT_PATH, "utf-8");
+    const source = await fs.readFile(CHT_SRC, "utf-8");
 
     // Extract each hook case block and verify it doesn't use outputWithNotification
     const hookCases = ["hook-save-user", "hook-save-assistant", "hook-save-compact", "hook-session-clear"];
@@ -55,7 +57,7 @@ describe("cht update CLI routing", () => {
 
   it("user-facing commands use outputWithNotification", async () => {
     const fs = await import("node:fs/promises");
-    const source = await fs.readFile(CHT_PATH, "utf-8");
+    const source = await fs.readFile(CHT_SRC, "utf-8");
 
     // Verify key user-facing commands use outputWithNotification
     const userFacingCases = ["create", "list", "search", "read", "delete", "doctor", "migrate"];

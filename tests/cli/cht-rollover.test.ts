@@ -6,9 +6,10 @@ import path from "node:path";
 import os from "node:os";
 import matter from "gray-matter";
 
+import { chtExecArgs } from "./helpers.ts";
 const execFileAsync = promisify(execFile);
 
-const CHT_PATH = path.resolve("bin/cht.ts");
+const [chtCmd, chtArgs] = chtExecArgs();
 
 describe("cht rollover", () => {
   let tmpDir: string;
@@ -26,8 +27,8 @@ describe("cht rollover", () => {
   ): Promise<{ ok: boolean; [key: string]: unknown }> {
     try {
       const { stdout } = await execFileAsync(
-        "node",
-        ["--experimental-strip-types", CHT_PATH, ...cliArgs],
+        chtCmd,
+        [...chtArgs, ...cliArgs],
         {
           env: { ...process.env, CHAT_STORAGE_DIR: tmpDir },
         },
