@@ -2,8 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
-import { compareSemver, REGISTRY_URL } from "./version-check.ts";
-import { createRequire } from "node:module";
+import { compareSemver, loadPackageVersion, REGISTRY_URL } from "./version-check.ts";
 
 export interface VersionCache {
   latest: string;
@@ -58,15 +57,6 @@ export function spawnBackgroundRefresh(cachePath?: string): void {
     stdio: "ignore",
   });
   child.unref();
-}
-
-function loadPackageVersion(): string {
-  const req = createRequire(import.meta.url);
-  try {
-    return (req("../package.json") as { version: string }).version;
-  } catch {
-    return (req("../../package.json") as { version: string }).version;
-  }
 }
 
 export function getUpdateNotification(cache: VersionCache | null): string | null {

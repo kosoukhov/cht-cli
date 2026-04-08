@@ -9,7 +9,7 @@ export interface VersionInfo {
   upToDate: boolean;
 }
 
-function loadPackageVersion(): string {
+export function loadPackageVersion(): string {
   const req = createRequire(import.meta.url);
   // From dist/cht.js (tsup bundle): "../package.json" resolves to project root
   // From src/hooks/version-check.ts (dev/test): need "../../package.json"

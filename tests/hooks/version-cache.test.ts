@@ -19,6 +19,7 @@ vi.mock("node:os", () => ({
 // Mock version-check to avoid importing createRequire chain
 vi.mock("../../src/hooks/version-check.ts", () => ({
   REGISTRY_URL: "https://registry.npmjs.org/@kosoukhov/cht-cli/latest",
+  loadPackageVersion: () => "2.0.2",
   compareSemver: (a: string, b: string): number => {
     const parse = (v: string) => v.split("-")[0].split(".").map(Number);
     const pa = parse(a);
@@ -28,13 +29,6 @@ vi.mock("../../src/hooks/version-check.ts", () => ({
       if (pa[i] < pb[i]) return -1;
     }
     return 0;
-  },
-}));
-
-// Mock createRequire to provide package version
-vi.mock("node:module", () => ({
-  createRequire: () => {
-    return (_path: string) => ({ version: "2.0.2" });
   },
 }));
 
