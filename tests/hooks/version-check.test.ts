@@ -15,9 +15,16 @@ describe("compareSemver", () => {
     expect(compareSemver("1.9.9", "2.0.0")).toBe(-1);
     expect(compareSemver("3.0.0", "2.99.99")).toBe(1);
   });
-  it("strips prerelease suffix before comparison", () => {
-    expect(compareSemver("1.0.0-beta", "1.0.0")).toBe(0);
+  it("treats prerelease as less than release when numeric parts equal", () => {
+    expect(compareSemver("1.0.0-beta", "1.0.0")).toBe(-1);
+    expect(compareSemver("1.0.0", "1.0.0-beta")).toBe(1);
+  });
+  it("treats both-prerelease with same numeric parts as equal", () => {
+    expect(compareSemver("1.0.0-alpha", "1.0.0-beta")).toBe(0);
+  });
+  it("still compares numeric parts correctly when prerelease present", () => {
     expect(compareSemver("1.0.0", "1.0.1-rc.1")).toBe(-1);
+    expect(compareSemver("1.0.2-beta", "1.0.1")).toBe(1);
   });
 
   it("handles partial versions — missing patch treated as 0", () => {

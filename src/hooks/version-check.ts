@@ -46,20 +46,26 @@ export async function checkLatestVersion(): Promise<VersionInfo> {
   };
 }
 
-/** Compare two semver strings (major.minor.patch only). Returns 1, 0, or -1. */
+/** Compare two semver strings (major.minor.patch, with prerelease awareness). Returns 1, 0, or -1. */
 export function compareSemver(a: string, b: string): number {
-  const parse = (v: string) =>
-    v.split("-")[0].split(".").map((s) => {
-      const n = Number(s);
-      return Number.isNaN(n) ? 0 : n;
-    });
-  const pa = parse(a);
-  const pb = parse(b);
+  const [aCore, aPre] = a.split("-", 2);
+  const [bCore, bPre] = b.split("-", 2);
+  const pa = aCore.split(".").map((s) => {
+    const n = Number(s);
+    return Number.isNaN(n) ? 0 : n;
+  });
+  const pb = bCore.split(".").map((s) => {
+    const n = Number(s);
+    return Number.isNaN(n) ? 0 : n;
+  });
   for (let i = 0; i < 3; i++) {
     const va = pa[i] ?? 0;
     const vb = pb[i] ?? 0;
     if (va > vb) return 1;
     if (va < vb) return -1;
   }
+  // Numeric parts equal: prerelease < release
+  if (aPre && !bPre) return -1;
+  if (!aPre && bPre) return 1;
   return 0;
 }
