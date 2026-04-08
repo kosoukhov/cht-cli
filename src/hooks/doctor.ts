@@ -3,6 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
 import { checkLatestVersion } from "./version-check.ts";
+import { writeVersionCache } from "./version-cache.ts";
 
 export interface DoctorCheck {
   name: string;
@@ -90,6 +91,8 @@ export async function runDoctor(options?: {
   if (options?.checkVersion) {
     try {
       const info = await checkLatestVersion();
+      // D-21: write cache as side effect
+      try { writeVersionCache(info.latest); } catch { /* best-effort */ }
       if (info.upToDate) {
         // D-02: up-to-date format
         checks.push({

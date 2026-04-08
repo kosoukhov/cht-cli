@@ -30,6 +30,14 @@ import {
 import { registerHooks, cleanProjectHooks, copySkills } from "../src/hooks/setup.ts";
 import { runDoctor } from "../src/hooks/doctor.ts";
 import { runMigrate } from "../src/hooks/migrate.ts";
+import { runUpdate } from "../src/hooks/update.ts";
+import {
+  readVersionCache,
+  writeVersionCache,
+  isCacheStale,
+  spawnBackgroundRefresh,
+  getUpdateNotification,
+} from "../src/hooks/version-cache.ts";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ChatListEntry } from "../src/types.ts";
@@ -78,6 +86,19 @@ function output(data: Record<string, unknown>): void {
   process.stdout.write(JSON.stringify(data) + "\n");
 }
 
+function outputWithNotification(data: Record<string, unknown>): void {
+  const cache = readVersionCache();
+  const notification = getUpdateNotification(cache);
+  if (notification) {
+    data.update_available = notification;
+  }
+  // Trigger background refresh if cache is stale
+  if (isCacheStale(cache)) {
+    try { spawnBackgroundRefresh(); } catch { /* best-effort */ }
+  }
+  output(data);
+}
+
 async function hookErrorHandler(hookName: string, err: unknown): Promise<never> {
   try {
     const logPath = path.join(resolveStorageRoot(), ".hook-errors.log");
@@ -98,7 +119,7 @@ async function main(): Promise<void> {
       const project = args[0] || "general";
       const title = args[1] || "(untitled)";
       const chatPath = await createChat(storageRoot, project, title);
-      output({ ok: true, chat_path: chatPath });
+      outputWithNotification({ ok: true, chat_path: chatPath });
       break;
     }
 
@@ -127,7 +148,7 @@ async function main(): Promise<void> {
         }
       }
 
-      output({ ok: true, chats: entries.map(serializeEntry) });
+      outputWithNotification({ ok: true, chats: entries.map(serializeEntry) });
       break;
     }
 
@@ -156,7 +177,7 @@ async function main(): Promise<void> {
         allProjects ? undefined : project,
         allProjects,
       );
-      output({ ok: true, results: results.map(serializeSearchResult) });
+      outputWithNotification({ ok: true, results: results.map(serializeSearchResult) });
       break;
     }
 
@@ -168,7 +189,7 @@ async function main(): Promise<void> {
         return;
       }
       const chat = await readChat(chatPath);
-      output({ ok: true, chat });
+      outputWithNotification({ ok: true, chat });
       break;
     }
 
@@ -181,7 +202,7 @@ async function main(): Promise<void> {
       }
       await clearIfMatches(chatPath);
       await deleteChat(chatPath);
-      output({ ok: true, deleted: chatPath });
+      outputWithNotification({ ok: true, deleted: chatPath });
       break;
     }
 
@@ -195,7 +216,7 @@ async function main(): Promise<void> {
       }
       await clearIfMatches(chatPath);
       const archivedPath = await archiveChat(chatPath, storageRoot, project);
-      output({ ok: true, archived: archivedPath });
+      outputWithNotification({ ok: true, archived: archivedPath });
       break;
     }
 
@@ -208,13 +229,13 @@ async function main(): Promise<void> {
         return;
       }
       const restoredPath = await restoreChat(chatPath, storageRoot, project);
-      output({ ok: true, restored: restoredPath });
+      outputWithNotification({ ok: true, restored: restoredPath });
       break;
     }
 
     case "session-get": {
       const active = await getActiveChat();
-      output({ ok: true, active });
+      outputWithNotification({ ok: true, active });
       break;
     }
 
@@ -227,19 +248,19 @@ async function main(): Promise<void> {
         return;
       }
       await setActiveChat({ chat_path: chatPath, project });
-      output({ ok: true });
+      outputWithNotification({ ok: true });
       break;
     }
 
     case "session-clear": {
       await clearActiveChat();
-      output({ ok: true });
+      outputWithNotification({ ok: true });
       break;
     }
 
     case "projects": {
       const projects = await listProjects(storageRoot);
-      output({ ok: true, projects });
+      outputWithNotification({ ok: true, projects });
       break;
     }
 
@@ -268,7 +289,7 @@ async function main(): Promise<void> {
         return;
       }
       await appendMessage(active.chat_path, role, content);
-      output({ ok: true, role, chat_path: active.chat_path });
+      outputWithNotification({ ok: true, role, chat_path: active.chat_path });
       break;
     }
 
@@ -281,7 +302,7 @@ async function main(): Promise<void> {
         return;
       }
       await updateFrontmatter(chatPath, { title: newTitle });
-      output({ ok: true, renamed: chatPath, title: newTitle });
+      outputWithNotification({ ok: true, renamed: chatPath, title: newTitle });
       break;
     }
 
@@ -302,12 +323,12 @@ async function main(): Promise<void> {
       const chat = await readChat(chatPath);
       const currentTags = chat.frontmatter.tags || [];
       if (currentTags.includes(tag)) {
-        output({ ok: true, tag, tags: currentTags });
+        outputWithNotification({ ok: true, tag, tags: currentTags });
         break;
       }
       const newTags = [...currentTags, tag];
       await updateFrontmatter(chatPath, { tags: newTags });
-      output({ ok: true, tag, tags: newTags });
+      outputWithNotification({ ok: true, tag, tags: newTags });
       break;
     }
 
@@ -328,12 +349,12 @@ async function main(): Promise<void> {
       const chat = await readChat(chatPath);
       const currentTags = chat.frontmatter.tags || [];
       if (!currentTags.includes(tag)) {
-        output({ ok: true, tag, tags: currentTags });
+        outputWithNotification({ ok: true, tag, tags: currentTags });
         break;
       }
       const newTags = currentTags.filter((t: string) => t !== tag);
       await updateFrontmatter(chatPath, { tags: newTags });
-      output({ ok: true, tag, tags: newTags });
+      outputWithNotification({ ok: true, tag, tags: newTags });
       break;
     }
 
@@ -403,7 +424,7 @@ async function main(): Promise<void> {
         }
       }
 
-      output({
+      outputWithNotification({
         ok: true,
         chat_path: active.chat_path,
         title: chat.frontmatter.title,
@@ -448,7 +469,7 @@ async function main(): Promise<void> {
         ...(tags && tags.length > 0 ? { tags } : {}),
       });
 
-      output({
+      outputWithNotification({
         ok: true,
         old_chat_path: active.chat_path,
         new_chat_path: newChatPath,
@@ -552,7 +573,7 @@ async function main(): Promise<void> {
     case "doctor": {
       const checkVersion = hasFlag("--check-version");
       const result = await runDoctor({ storageRoot, checkVersion });
-      output({
+      outputWithNotification({
         ok: result.overall === "ok",
         overall: result.overall,
         checks: result.checks,
@@ -563,7 +584,7 @@ async function main(): Promise<void> {
 
     case "migrate": {
       const result = await runMigrate();
-      output({
+      outputWithNotification({
         ok: true,
         removed: result.removed,
         warnings: result.warnings,
@@ -571,10 +592,26 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "update": {
+      const dryRun = hasFlag("--dry-run");
+      const result = await runUpdate({ dryRun });
+      // D-21: write cache as side effect on successful version check
+      if (result.ok && result.to) {
+        try { writeVersionCache(result.to); } catch { /* best-effort */ }
+      } else if (result.ok && result.latest) {
+        try { writeVersionCache(result.latest); } catch { /* best-effort */ }
+      } else if (result.ok && result.version) {
+        try { writeVersionCache(result.version); } catch { /* best-effort */ }
+      }
+      output(result as Record<string, unknown>);
+      if (!result.ok) process.exit(1);
+      break;
+    }
+
     default: {
       output({
         ok: false,
-        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects, status, rollover, hook-save-user, hook-save-assistant, hook-save-compact, hook-session-clear, setup, doctor, migrate`,
+        error: `Unknown command: ${command ?? "(none)"}. Available: create, list, search, read, delete, archive, restore, append, rename, tag-add, tag-remove, session-get, session-set, session-clear, projects, status, rollover, hook-save-user, hook-save-assistant, hook-save-compact, hook-session-clear, setup, doctor, migrate, update`,
       });
       process.exit(1);
     }
