@@ -18,6 +18,7 @@ vi.mock("node:os", () => ({
 
 // Mock version-check to avoid importing createRequire chain
 vi.mock("../../src/hooks/version-check.ts", () => ({
+  REGISTRY_URL: "https://registry.npmjs.org/@kosoukhov/cht-cli/latest",
   compareSemver: (a: string, b: string): number => {
     const parse = (v: string) => v.split("-")[0].split(".").map(Number);
     const pa = parse(a);

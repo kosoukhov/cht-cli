@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 
-const REGISTRY_URL = "https://registry.npmjs.org/@kosoukhov/cht-cli/latest";
+export const REGISTRY_URL = "https://registry.npmjs.org/@kosoukhov/cht-cli/latest";
 const TIMEOUT_MS = 5000;
 
 export interface VersionInfo {

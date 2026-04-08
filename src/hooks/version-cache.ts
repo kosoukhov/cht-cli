@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
-import { compareSemver } from "./version-check.ts";
+import { compareSemver, REGISTRY_URL } from "./version-check.ts";
 import { createRequire } from "node:module";
 
 export interface VersionCache {
@@ -11,7 +11,6 @@ export interface VersionCache {
 }
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const REGISTRY_URL = "https://registry.npmjs.org/@kosoukhov/cht-cli/latest";
 
 export function getCachePath(): string {
   const cacheHome = process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache");
