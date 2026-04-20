@@ -4,6 +4,8 @@ dist/
 *.log
 chats/
 .planning/
+.claude/
 .DS_Store
-.claude/worktrees/
 *.tgz
+HANDOFF.json
+skills/
